@@ -9,6 +9,10 @@ struct DeckView: View {
     @State private var error: String?
     @State private var showingAdd = false
     @State private var showingImport = false
+    @State private var editing: Word?
+    /// A failed delete, shown as an alert. Separate from `error`, which
+    /// replaces the whole list when the deck itself cannot be loaded.
+    @State private var actionError: String?
 
     var body: some View {
         NavigationStack {
@@ -54,8 +58,23 @@ struct DeckView: View {
             .sheet(isPresented: $showingAdd) {
                 AddWordView { Task { await load() } }
             }
+            .sheet(item: $editing) { word in
+                AddWordView(editing: word) { Task { await load() } }
+            }
             .sheet(isPresented: $showingImport) {
                 ImportView { Task { await load() } }
+            }
+            .alert(
+                "Couldn't remove that word",
+                isPresented: Binding(
+                    get: { actionError != nil },
+                    set: { if !$0 { actionError = nil } }
+                ),
+                presenting: actionError
+            ) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { detail in
+                Text(detail)
             }
             .refreshable { await load() }
             .task { await load() }
@@ -67,8 +86,24 @@ struct DeckView: View {
             Section {
                 ForEach(words) { word in
                     WordRow(word: word)
+                        // Full swipe is off on purpose: with Delete sitting
+                        // outermost, a quick flick would throw a word away
+                        // when the intent was to reach Edit.
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                delete(word)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+
+                            Button {
+                                editing = word
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(.accentColor)
+                        }
                 }
-                .onDelete(perform: delete)
             } footer: {
                 Text("\(words.count) word\(words.count == 1 ? "" : "s")")
             }
@@ -90,12 +125,24 @@ struct DeckView: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        let targets = offsets.map { words[$0] }
-        words.remove(atOffsets: offsets)
+    /// Removes the row straight away, then confirms it with the server. A
+    /// failure puts the word back rather than leaving the list claiming a
+    /// deletion that never happened -- offline is the common case here, and it
+    /// would otherwise reappear unexplained at the next refresh.
+    private func delete(_ word: Word) {
+        guard let index = words.firstIndex(where: { $0.id == word.id }) else { return }
+        words.remove(at: index)
         Task {
-            for word in targets {
-                try? await settings.makeClient().deleteWord(id: word.id)
+            do {
+                try await settings.makeClient().deleteWord(id: word.id)
+            } catch let APIError.server(status, _) where status == 404 {
+                // Already gone on the server; the list is now right.
+            } catch {
+                // Only this word goes back, at the place it came from: a
+                // second delete may have landed while this one was in flight,
+                // and restoring a whole snapshot would undo that one too.
+                words.insert(word, at: min(index, words.count))
+                actionError = "\(word.display) is still in your deck. \(error.localizedDescription)"
             }
         }
     }

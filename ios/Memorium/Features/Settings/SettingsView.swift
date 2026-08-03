@@ -71,11 +71,12 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    TextField("Server URL", text: $settings.serverURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                    LabeledContent("Address", value: settings.serverURL)
+                        .textSelection(.enabled)
                 } header: {
                     Text("Connection")
+                } footer: {
+                    Text("Built into the app — MEMORIUM_API_URL in ios/project.yml.")
                 }
 
                 Section {

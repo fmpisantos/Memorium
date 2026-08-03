@@ -207,12 +207,19 @@ xcodegen generate
 open Memorium.xcodeproj
 ```
 
-Deployment target is iOS 26 (needed for on-device Foundation Models). Fill in
-`GOOGLE_CLIENT_ID` and `GOOGLE_REVERSED_CLIENT_ID` in `project.yml` before
-generating — see [Who gets in](#who-gets-in) — then build, run, enter your
-server URL (e.g. `http://192.168.1.20:8000`) and sign in with Google. The
-address has to be on the server's `MEMORIUM_ALLOWED_EMAILS` list; if it isn't,
-the setup screen says so and names the account rather than failing later.
+Deployment target is iOS 26 (needed for on-device Foundation Models). Three
+values in `project.yml` are baked into the build, so set them before
+generating:
+
+| Setting | What it is |
+|---|---|
+| `MEMORIUM_API_URL` | Where the app sends every request, e.g. `https://raspberrypi.tail0bfe57.ts.net/memorium/api`. There is one server, so its address is a property of the build rather than something typed into each install and tested by hand. |
+| `GOOGLE_CLIENT_ID` | The OAuth iOS client — see [Who gets in](#who-gets-in). |
+| `GOOGLE_REVERSED_CLIENT_ID` | The same ID reversed; it becomes the URL scheme Google's sheet returns through. |
+
+Then build, run, and sign in with Google. The address has to be on the server's
+`MEMORIUM_ALLOWED_EMAILS` list; if it isn't, the setup screen says so and names
+the account rather than failing later.
 
 The one external dependency is Google's own
 [GoogleSignIn](https://github.com/google/GoogleSignIn-iOS), resolved by SPM.
@@ -225,7 +232,7 @@ being asked to sign in again on every single launch.
 Tests: `xcodebuild test -project Memorium.xcodeproj -scheme Memorium \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` (19 tests).
 
-To skip the server-address step while developing:
+To point a build at a server on your desk without editing `project.yml`:
 
 ```bash
 SIMCTL_CHILD_MEMORIUM_DEV_URL=http://localhost:8000 \
@@ -319,7 +326,16 @@ ios/
     Core/              API client, models, settings, Google auth, outbox
     Services/          TTS, speech recognition, grading, OCR
     Features/          Onboarding, Study, Deck, Settings
+    Assets.xcassets/   app icon, generated -- see Tools/
+  Tools/               GenerateAppIcon.swift, draws the icon at every size
   MemoriumTests/       19 tests
+```
+
+The icon is drawn in code rather than kept as flat artwork, so redesigning it
+means editing `ios/Tools/GenerateAppIcon.swift` and re-running it from `ios/`:
+
+```bash
+swift Tools/GenerateAppIcon.swift Memorium/Assets.xcassets/AppIcon.appiconset
 ```
 
 All Claude calls sit behind the `ContentGenerator` protocol in

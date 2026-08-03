@@ -4,7 +4,6 @@ import Observation
 @Observable
 final class AppSettings {
     private enum Key {
-        static let serverURL = "serverURL"
         static let sourceLang = "sourceLang"
         static let targetLang = "targetLang"
         static let onboarded = "onboarded"
@@ -14,9 +13,11 @@ final class AppSettings {
 
     private let defaults = UserDefaults.standard
 
-    var serverURL: String {
-        didSet { defaults.set(serverURL, forKey: Key.serverURL) }
-    }
+    /// The server this build talks to, baked in at build time from
+    /// MEMORIUM_API_URL -- see project.yml. There is one server, so its address
+    /// is a property of the build rather than something to type into every
+    /// fresh install and then test by hand.
+    let serverURL: String
 
     var sourceLang: String {
         didSet { defaults.set(sourceLang, forKey: Key.sourceLang) }
@@ -41,7 +42,8 @@ final class AppSettings {
     }
 
     init() {
-        serverURL = defaults.string(forKey: Key.serverURL) ?? "http://localhost:8000"
+        var address = (Bundle.main.object(forInfoDictionaryKey: "MemoriumAPIURL") as? String ?? "")
+            .trimmingCharacters(in: .whitespaces)
         sourceLang = defaults.string(forKey: Key.sourceLang) ?? "en-US"
         targetLang = defaults.string(forKey: Key.targetLang) ?? "es-ES"
         hasOnboarded = defaults.bool(forKey: Key.onboarded)
@@ -52,23 +54,26 @@ final class AppSettings {
         autoTranslate = defaults.object(forKey: Key.autoTranslate) as? Bool ?? true
 
         #if DEBUG
-            // Skip the server-address step when launched with one in the
-            // environment, so the simulator can be driven from a script:
+            // Point a debug build at a server on the desk without rebuilding,
+            // so the simulator can be driven from a script:
             //   xcrun simctl launch booted com.memorium.app \
             //     --env MEMORIUM_DEV_URL=...
             // Signing in with Google still has to happen by hand -- that is
             // rather the point of it.
             let env = ProcessInfo.processInfo.environment
             if let url = env["MEMORIUM_DEV_URL"] {
-                serverURL = url
+                address = url
                 hasOnboarded = true
                 if let source = env["MEMORIUM_DEV_SOURCE"] { sourceLang = source }
                 if let target = env["MEMORIUM_DEV_TARGET"] { targetLang = target }
             }
         #endif
+
+        serverURL = address
     }
 
-    /// A usable server address. Being *allowed* to use it is a separate
+    /// A usable server address. False only for a build made without
+    /// MEMORIUM_API_URL. Being *allowed* to use the server is a separate
     /// question, and `AuthService` answers that one.
     var isConfigured: Bool {
         !serverURL.trimmingCharacters(in: .whitespaces).isEmpty

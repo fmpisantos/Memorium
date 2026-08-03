@@ -52,11 +52,6 @@ struct APIClient: Sendable {
         self.token = token
     }
 
-    /// For the one route that needs no identity: /health, during setup.
-    static func anonymous(baseURL: URL) -> APIClient {
-        APIClient(baseURL: baseURL) { "" }
-    }
-
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -179,6 +174,12 @@ struct APIClient: Sendable {
     func addWords(_ words: [WordCreate]) async throws -> WordBatchResult {
         let body = try Self.encoder.encode(WordBatchCreate(words: words))
         return try decode(WordBatchResult.self, from: await request("POST", "words/batch", body: body))
+    }
+
+    @discardableResult
+    func updateWord(id: String, _ update: WordUpdate) async throws -> Word {
+        let body = try Self.encoder.encode(update)
+        return try decode(Word.self, from: await request("PATCH", "words/\(id)", body: body))
     }
 
     func deleteWord(id: String) async throws {

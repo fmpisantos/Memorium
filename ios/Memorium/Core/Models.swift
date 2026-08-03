@@ -132,6 +132,15 @@ struct WordCreate: Codable, Sendable {
     var notes: String?
 }
 
+/// Every field is sent on every edit: the form always holds all three, and
+/// clearing the notes has to reach the server as an empty string rather than
+/// as an omitted key the server would read as "leave it alone".
+struct WordUpdate: Codable, Sendable {
+    let lemma: String
+    let nativeGloss: String
+    let notes: String
+}
+
 struct WordBatchCreate: Codable, Sendable {
     let words: [WordCreate]
 }

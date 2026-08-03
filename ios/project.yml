@@ -9,11 +9,15 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_APPROACHABLE_CONCURRENCY: YES
-    DEVELOPMENT_TEAM: ""
-    # Ad-hoc signing, so no team is needed to build -- but signed, because an
-    # unsigned app has no entitlements at all and the Keychain then refuses
-    # every write with errSecMissingEntitlement (-34018). That failure is
-    # silent, and the symptom is the API token never surviving a relaunch.
+    # The team that signs App Store builds. It lives here rather than only in
+    # Xcode's signing tab because the project is generated: `xcodegen generate`
+    # rewrites project.pbxproj, and anything set through the UI alone is lost
+    # on the next run.
+    DEVELOPMENT_TEAM: C5S4NV2VC6
+    # Ad-hoc signing for local builds -- but signed, because an unsigned app
+    # has no entitlements at all and the Keychain then refuses every write
+    # with errSecMissingEntitlement (-34018). That failure is silent, and the
+    # symptom is the API token never surviving a relaunch.
     CODE_SIGNING_REQUIRED: NO
     CODE_SIGNING_ALLOWED: YES
     CODE_SIGN_IDENTITY: "-"
@@ -44,7 +48,19 @@ targets:
       properties:
         UILaunchScreen: {}
         CFBundleDisplayName: Memorium
+        # The upload build number. Here rather than edited in the plist alone,
+        # which `xcodegen generate` resets to 1 on its next run.
+        CFBundleVersion: "2"
+        # Portrait-only on iPhone, where the study screens are designed to sit.
+        # iPad is a different story: App Store validation rejects any iPad
+        # build (error 90474) that does not offer all four orientations, since
+        # a multitasking app can be resized into any of them.
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         # Speaking mode records audio and transcribes it. Without these two
         # keys the app crashes the first time the microphone is touched.
         NSMicrophoneUsageDescription: "Memorium listens while you practise saying words aloud, so it can tell you how close you got."
@@ -53,6 +69,8 @@ targets:
         # below. Sign-in stays disabled, with an explanation on screen, until
         # they are filled in.
         GIDClientID: $(GOOGLE_CLIENT_ID)
+        # The one server this build talks to; see MEMORIUM_API_URL below.
+        MemoriumAPIURL: $(MEMORIUM_API_URL)
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLSchemes: [$(GOOGLE_REVERSED_CLIENT_ID)]
@@ -60,6 +78,16 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.memorium.app
         TARGETED_DEVICE_FAMILY: "1,2"
+        # Compiling the icon set is what writes CFBundleIconName into the
+        # Info.plist; without it the App Store rejects the upload (90713).
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # --- Server --------------------------------------------------------
+        # Where the app sends every request. A build constant rather than a
+        # setting typed into each install: there is one server, and an address
+        # nobody has to type is an address nobody gets wrong. Point a debug
+        # build somewhere else with MEMORIUM_DEV_URL in the environment instead
+        # of editing this. Re-run `xcodegen generate` after changing it.
+        MEMORIUM_API_URL: "https://raspberrypi.tail0bfe57.ts.net/memorium/api"
         # --- Google Sign-In ------------------------------------------------
         # From the Google Cloud console: APIs & Services -> Credentials ->
         # Create credentials -> OAuth client ID -> iOS, with the bundle ID

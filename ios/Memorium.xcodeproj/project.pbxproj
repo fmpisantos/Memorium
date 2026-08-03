@@ -10,7 +10,9 @@
 		038F9A7B2D580A20669D780A /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5281B830D50B9907475D560E /* SpeechService.swift */; };
 		0998A86DBCCD369023544BFF /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 266BEEF1975FB814CC5EC44C /* SettingsTests.swift */; };
 		119B083223B6758485438BD8 /* LocalGrader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746B431D9C243CC6EE7D61AF /* LocalGrader.swift */; };
+		1D342D25D34227859706E53D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2A2A57E82C8EB70CEEDB180F /* Assets.xcassets */; };
 		28C174731BCDEAD5F36788CC /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 9914F5DBB4F660844EB8FAE1 /* GoogleSignInSwift */; };
+		2950DD1C95EBEA2048D22BDC /* DraftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF3720DB1DA41B60CD429742 /* DraftTests.swift */; };
 		2E3A55A2629F47CF382AAB9E /* CardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1945A398B17E43BEF1C366 /* CardView.swift */; };
 		3A30A9B71F50B38F2C3672A8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */; };
 		3BA508C722DB540DC061D1CA /* DeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 727BB2BBFE15731A1EEA95FD /* DeckView.swift */; };
@@ -45,6 +47,7 @@
 		0A85360992DE8FE27D82062E /* Memorium.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Memorium.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A86A1A1C884DF4381B782FF /* MemoriumTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MemoriumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		266BEEF1975FB814CC5EC44C /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
+		2A2A57E82C8EB70CEEDB180F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecognitionService.swift; sourceTree = "<group>"; };
 		37D6A032BCDBC33D6812BF65 /* ImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportView.swift; sourceTree = "<group>"; };
 		3BDF7B37DDD252DB3C281518 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -60,6 +63,7 @@
 		C133DD951672613EAB55E1C1 /* Outbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Outbox.swift; sourceTree = "<group>"; };
 		C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CD2F1A9C39DC36418144274A /* MemoriumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriumApp.swift; sourceTree = "<group>"; };
+		CF3720DB1DA41B60CD429742 /* DraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftTests.swift; sourceTree = "<group>"; };
 		DD16C0E04A7A56924DC6BEA6 /* StudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyView.swift; sourceTree = "<group>"; };
 		E2017898C210FD1CC5BCBE0C /* GradingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingTests.swift; sourceTree = "<group>"; };
 		EA3FB2ADF4AB9280EB7C8B67 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -83,6 +87,7 @@
 		126C41F2702D1CCB9FB5F01A /* Memorium */ = {
 			isa = PBXGroup;
 			children = (
+				2A2A57E82C8EB70CEEDB180F /* Assets.xcassets */,
 				F841C4F917505213C1E2CF99 /* Info.plist */,
 				CD2F1A9C39DC36418144274A /* MemoriumApp.swift */,
 				AD176B8CEA0299D1E59653C5 /* Core */,
@@ -106,6 +111,7 @@
 		1E33CE8313744ECAAF1F2007 /* MemoriumTests */ = {
 			isa = PBXGroup;
 			children = (
+				CF3720DB1DA41B60CD429742 /* DraftTests.swift */,
 				E2017898C210FD1CC5BCBE0C /* GradingTests.swift */,
 				266BEEF1975FB814CC5EC44C /* SettingsTests.swift */,
 			);
@@ -197,6 +203,7 @@
 			buildConfigurationList = 5B02639681C6C3045AAB13F7 /* Build configuration list for PBXNativeTarget "Memorium" */;
 			buildPhases = (
 				52E8B5691FD89151477785A6 /* Sources */,
+				36C5B8F36D59129D1CD06DB1 /* Resources */,
 				6FF9261C77E295165A1E8DA0 /* Frameworks */,
 			);
 			buildRules = (
@@ -240,10 +247,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					03E693A1E89E1B370610774B = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = C5S4NV2VC6;
 					};
 					42345BC3AFF099847329C3EA = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = C5S4NV2VC6;
 					};
 				};
 			};
@@ -270,11 +277,23 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		36C5B8F36D59129D1CD06DB1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D342D25D34227859706E53D /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		0DF4B0F43D264D70B3A2B827 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2950DD1C95EBEA2048D22BDC /* DraftTests.swift in Sources */,
 				4ED09BA1787EF4B01ADBF628 /* GradingTests.swift in Sources */,
 				0998A86DBCCD369023544BFF /* SettingsTests.swift in Sources */,
 			);
@@ -354,7 +373,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = C5S4NV2VC6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -396,6 +415,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MEMORIUM_API_URL = "https://raspberrypi.tail0bfe57.ts.net/memorium/api";
 				PRODUCT_BUNDLE_IDENTIFIER = com.memorium.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -474,7 +494,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = C5S4NV2VC6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -509,6 +529,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MEMORIUM_API_URL = "https://raspberrypi.tail0bfe57.ts.net/memorium/api";
 				PRODUCT_BUNDLE_IDENTIFIER = com.memorium.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
