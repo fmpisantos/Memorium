@@ -389,8 +389,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				GOOGLE_CLIENT_ID = "";
-				GOOGLE_REVERSED_CLIENT_ID = "";
+				GOOGLE_CLIENT_ID = "520263492590-eh7qsu4h3it28ife7opbmps5hmhfo4vi.apps.googleusercontent.com";
+				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.520263492590-eh7qsu4h3it28ife7opbmps5hmhfo4vi";
 				INFOPLIST_FILE = Memorium/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -502,8 +502,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				GOOGLE_CLIENT_ID = "";
-				GOOGLE_REVERSED_CLIENT_ID = "";
+				GOOGLE_CLIENT_ID = "520263492590-eh7qsu4h3it28ife7opbmps5hmhfo4vi.apps.googleusercontent.com";
+				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.520263492590-eh7qsu4h3it28ife7opbmps5hmhfo4vi";
 				INFOPLIST_FILE = Memorium/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

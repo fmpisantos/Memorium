@@ -71,8 +71,8 @@ targets:
         # The same client ID goes in the server's MEMORIUM_GOOGLE_CLIENT_ID,
         # which is what makes the server accept tokens minted for this app and
         # nothing else. Re-run `xcodegen generate` after editing.
-        GOOGLE_CLIENT_ID: ""
-        GOOGLE_REVERSED_CLIENT_ID: ""
+        GOOGLE_CLIENT_ID: "520263492590-eh7qsu4h3it28ife7opbmps5hmhfo4vi.apps.googleusercontent.com"
+        GOOGLE_REVERSED_CLIENT_ID: "com.googleusercontent.apps.520263492590-eh7qsu4h3it28ife7opbmps5hmhfo4vi"
 
   MemoriumTests:
     type: bundle.unit-test
