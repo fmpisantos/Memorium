@@ -1,0 +1,13 @@
+services:
+  memorium:
+    build: .
+    # Bound to localhost by design. The only auth is a shared bearer token, so
+    # do not publish this to 0.0.0.0 without TLS -- put it behind Tailscale or
+    # a reverse proxy that terminates HTTPS.
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/srv/data
+    restart: unless-stopped

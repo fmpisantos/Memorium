@@ -1,0 +1,529 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		038F9A7B2D580A20669D780A /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5281B830D50B9907475D560E /* SpeechService.swift */; };
+		0E0D63883B5D6E8019242236 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70E259894CE6D82C4E42901 /* Keychain.swift */; };
+		119B083223B6758485438BD8 /* LocalGrader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746B431D9C243CC6EE7D61AF /* LocalGrader.swift */; };
+		2E3A55A2629F47CF382AAB9E /* CardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1945A398B17E43BEF1C366 /* CardView.swift */; };
+		3A30A9B71F50B38F2C3672A8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */; };
+		3BA508C722DB540DC061D1CA /* DeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 727BB2BBFE15731A1EEA95FD /* DeckView.swift */; };
+		4DDFF269E623173495A44578 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDF7B37DDD252DB3C281518 /* OnboardingView.swift */; };
+		4ED09BA1787EF4B01ADBF628 /* GradingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2017898C210FD1CC5BCBE0C /* GradingTests.swift */; };
+		5350B613B6FD98BC8E204336 /* ScreenshotImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795EE69B98309AF4A334901B /* ScreenshotImporter.swift */; };
+		5E742037384BE07C64960EC7 /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D6A032BCDBC33D6812BF65 /* ImportView.swift */; };
+		7CA1672E2E6CA77E766D27CC /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 649A36544A0D65D5ED9A2FB2 /* Models.swift */; };
+		8724611C1CB21D5EE2EA7C95 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA3FB2ADF4AB9280EB7C8B67 /* AppSettings.swift */; };
+		8C0C50869623B184EB6F895C /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD16C0E04A7A56924DC6BEA6 /* StudyView.swift */; };
+		8F9A9E56D4A3692EA3F06822 /* StudyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91BCC4BE03200AF2478187AD /* StudyViewModel.swift */; };
+		9544AA6EE413D53F3C2F16E7 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A19819B93B58C4A900EE884 /* APIClient.swift */; };
+		987771225F7A1F915465D048 /* Outbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C133DD951672613EAB55E1C1 /* Outbox.swift */; };
+		EEE73CC3D098A70DACB95642 /* MemoriumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F1A9C39DC36418144274A /* MemoriumApp.swift */; };
+		F674ABAF9331CB1D3313647A /* RecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */; };
+		F798BDEF2580308F3FFCDCA3 /* AddWordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDF3031CE12936318BA1F32 /* AddWordView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		08A40887224AC10EC76BD943 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 592906145E34E8239B6C7D8E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 03E693A1E89E1B370610774B;
+			remoteInfo = Memorium;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0A85360992DE8FE27D82062E /* Memorium.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Memorium.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A86A1A1C884DF4381B782FF /* MemoriumTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MemoriumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecognitionService.swift; sourceTree = "<group>"; };
+		37D6A032BCDBC33D6812BF65 /* ImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportView.swift; sourceTree = "<group>"; };
+		3BDF7B37DDD252DB3C281518 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		5281B830D50B9907475D560E /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
+		649A36544A0D65D5ED9A2FB2 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		6A19819B93B58C4A900EE884 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		6B1945A398B17E43BEF1C366 /* CardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardView.swift; sourceTree = "<group>"; };
+		727BB2BBFE15731A1EEA95FD /* DeckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckView.swift; sourceTree = "<group>"; };
+		746B431D9C243CC6EE7D61AF /* LocalGrader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalGrader.swift; sourceTree = "<group>"; };
+		795EE69B98309AF4A334901B /* ScreenshotImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotImporter.swift; sourceTree = "<group>"; };
+		91BCC4BE03200AF2478187AD /* StudyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyViewModel.swift; sourceTree = "<group>"; };
+		9DDF3031CE12936318BA1F32 /* AddWordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWordView.swift; sourceTree = "<group>"; };
+		C133DD951672613EAB55E1C1 /* Outbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Outbox.swift; sourceTree = "<group>"; };
+		C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		CD2F1A9C39DC36418144274A /* MemoriumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriumApp.swift; sourceTree = "<group>"; };
+		DD16C0E04A7A56924DC6BEA6 /* StudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyView.swift; sourceTree = "<group>"; };
+		E2017898C210FD1CC5BCBE0C /* GradingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingTests.swift; sourceTree = "<group>"; };
+		EA3FB2ADF4AB9280EB7C8B67 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		F70E259894CE6D82C4E42901 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		126C41F2702D1CCB9FB5F01A /* Memorium */ = {
+			isa = PBXGroup;
+			children = (
+				CD2F1A9C39DC36418144274A /* MemoriumApp.swift */,
+				AD176B8CEA0299D1E59653C5 /* Core */,
+				13EE8915896716955454568C /* Features */,
+				C1D4B2EAC9B14DC64CD010E0 /* Services */,
+			);
+			path = Memorium;
+			sourceTree = "<group>";
+		};
+		13EE8915896716955454568C /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				8889BF49E78BC6D615FE3BA8 /* Deck */,
+				604427E64648AC536DBDFA4F /* Onboarding */,
+				1E54F4D4757C500A511AF269 /* Settings */,
+				4C832E2823E9682DBC1BB82F /* Study */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		1E33CE8313744ECAAF1F2007 /* MemoriumTests */ = {
+			isa = PBXGroup;
+			children = (
+				E2017898C210FD1CC5BCBE0C /* GradingTests.swift */,
+			);
+			path = MemoriumTests;
+			sourceTree = "<group>";
+		};
+		1E54F4D4757C500A511AF269 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		4C832E2823E9682DBC1BB82F /* Study */ = {
+			isa = PBXGroup;
+			children = (
+				6B1945A398B17E43BEF1C366 /* CardView.swift */,
+				DD16C0E04A7A56924DC6BEA6 /* StudyView.swift */,
+				91BCC4BE03200AF2478187AD /* StudyViewModel.swift */,
+			);
+			path = Study;
+			sourceTree = "<group>";
+		};
+		52B88F21B6465B986C80170B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0A85360992DE8FE27D82062E /* Memorium.app */,
+				0A86A1A1C884DF4381B782FF /* MemoriumTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		604427E64648AC536DBDFA4F /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				3BDF7B37DDD252DB3C281518 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		8889BF49E78BC6D615FE3BA8 /* Deck */ = {
+			isa = PBXGroup;
+			children = (
+				9DDF3031CE12936318BA1F32 /* AddWordView.swift */,
+				727BB2BBFE15731A1EEA95FD /* DeckView.swift */,
+				37D6A032BCDBC33D6812BF65 /* ImportView.swift */,
+			);
+			path = Deck;
+			sourceTree = "<group>";
+		};
+		AD176B8CEA0299D1E59653C5 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				6A19819B93B58C4A900EE884 /* APIClient.swift */,
+				EA3FB2ADF4AB9280EB7C8B67 /* AppSettings.swift */,
+				F70E259894CE6D82C4E42901 /* Keychain.swift */,
+				649A36544A0D65D5ED9A2FB2 /* Models.swift */,
+				C133DD951672613EAB55E1C1 /* Outbox.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		C1D4B2EAC9B14DC64CD010E0 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				746B431D9C243CC6EE7D61AF /* LocalGrader.swift */,
+				33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */,
+				795EE69B98309AF4A334901B /* ScreenshotImporter.swift */,
+				5281B830D50B9907475D560E /* SpeechService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		DF5426A17076B1071A65497D = {
+			isa = PBXGroup;
+			children = (
+				126C41F2702D1CCB9FB5F01A /* Memorium */,
+				1E33CE8313744ECAAF1F2007 /* MemoriumTests */,
+				52B88F21B6465B986C80170B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		03E693A1E89E1B370610774B /* Memorium */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5B02639681C6C3045AAB13F7 /* Build configuration list for PBXNativeTarget "Memorium" */;
+			buildPhases = (
+				52E8B5691FD89151477785A6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Memorium;
+			packageProductDependencies = (
+			);
+			productName = Memorium;
+			productReference = 0A85360992DE8FE27D82062E /* Memorium.app */;
+			productType = "com.apple.product-type.application";
+		};
+		42345BC3AFF099847329C3EA /* MemoriumTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5E65F621E94E455FB1C97DF3 /* Build configuration list for PBXNativeTarget "MemoriumTests" */;
+			buildPhases = (
+				0DF4B0F43D264D70B3A2B827 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				13EAFB4384CE0FC47D258DFC /* PBXTargetDependency */,
+			);
+			name = MemoriumTests;
+			packageProductDependencies = (
+			);
+			productName = MemoriumTests;
+			productReference = 0A86A1A1C884DF4381B782FF /* MemoriumTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		592906145E34E8239B6C7D8E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					03E693A1E89E1B370610774B = {
+						DevelopmentTeam = "";
+					};
+					42345BC3AFF099847329C3EA = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 60663D2130C4A13BDD44F612 /* Build configuration list for PBXProject "Memorium" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DF5426A17076B1071A65497D;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 52B88F21B6465B986C80170B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				03E693A1E89E1B370610774B /* Memorium */,
+				42345BC3AFF099847329C3EA /* MemoriumTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0DF4B0F43D264D70B3A2B827 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4ED09BA1787EF4B01ADBF628 /* GradingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52E8B5691FD89151477785A6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9544AA6EE413D53F3C2F16E7 /* APIClient.swift in Sources */,
+				F798BDEF2580308F3FFCDCA3 /* AddWordView.swift in Sources */,
+				8724611C1CB21D5EE2EA7C95 /* AppSettings.swift in Sources */,
+				2E3A55A2629F47CF382AAB9E /* CardView.swift in Sources */,
+				3BA508C722DB540DC061D1CA /* DeckView.swift in Sources */,
+				5E742037384BE07C64960EC7 /* ImportView.swift in Sources */,
+				0E0D63883B5D6E8019242236 /* Keychain.swift in Sources */,
+				119B083223B6758485438BD8 /* LocalGrader.swift in Sources */,
+				EEE73CC3D098A70DACB95642 /* MemoriumApp.swift in Sources */,
+				7CA1672E2E6CA77E766D27CC /* Models.swift in Sources */,
+				4DDFF269E623173495A44578 /* OnboardingView.swift in Sources */,
+				987771225F7A1F915465D048 /* Outbox.swift in Sources */,
+				F674ABAF9331CB1D3313647A /* RecognitionService.swift in Sources */,
+				5350B613B6FD98BC8E204336 /* ScreenshotImporter.swift in Sources */,
+				3A30A9B71F50B38F2C3672A8 /* SettingsView.swift in Sources */,
+				038F9A7B2D580A20669D780A /* SpeechService.swift in Sources */,
+				8C0C50869623B184EB6F895C /* StudyView.swift in Sources */,
+				8F9A9E56D4A3692EA3F06822 /* StudyViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		13EAFB4384CE0FC47D258DFC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 03E693A1E89E1B370610774B /* Memorium */;
+			targetProxy = 08A40887224AC10EC76BD943 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4EE54A96303A9AEFF6F3F9A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		608A5B6959A46439BE796F79 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Memorium;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Memorium listens while you practise saying words aloud, so it can tell you how close you got.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Memorium transcribes what you say to score your pronunciation. Recognition runs on your device.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.memorium.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		88D1601E0F7F6680F349DA62 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.memorium.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Memorium.app/Memorium";
+			};
+			name = Release;
+		};
+		9ECAD625833DF053E7F785BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.memorium.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Memorium.app/Memorium";
+			};
+			name = Debug;
+		};
+		D066290681F0E8A9F6B5A21C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		D9D941A4293D89D7A11CB797 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Memorium;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Memorium listens while you practise saying words aloud, so it can tell you how close you got.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Memorium transcribes what you say to score your pronunciation. Recognition runs on your device.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.memorium.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5B02639681C6C3045AAB13F7 /* Build configuration list for PBXNativeTarget "Memorium" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				608A5B6959A46439BE796F79 /* Debug */,
+				D9D941A4293D89D7A11CB797 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5E65F621E94E455FB1C97DF3 /* Build configuration list for PBXNativeTarget "MemoriumTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9ECAD625833DF053E7F785BA /* Debug */,
+				88D1601E0F7F6680F349DA62 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		60663D2130C4A13BDD44F612 /* Build configuration list for PBXProject "Memorium" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4EE54A96303A9AEFF6F3F9A3 /* Debug */,
+				D066290681F0E8A9F6B5A21C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 592906145E34E8239B6C7D8E /* Project object */;
+}

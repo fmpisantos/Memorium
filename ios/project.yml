@@ -1,0 +1,45 @@
+name: Memorium
+options:
+  bundleIdPrefix: com.memorium
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGNING_ALLOWED: NO
+
+targets:
+  Memorium:
+    type: application
+    platform: iOS
+    sources:
+      - path: Memorium
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.memorium.app
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Memorium
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # Speaking mode records audio and transcribes it. Without these two
+        # keys the app crashes the first time the microphone is touched.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Memorium listens while you practise saying words aloud, so it can tell you how close you got."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Memorium transcribes what you say to score your pronunciation. Recognition runs on your device."
+        TARGETED_DEVICE_FAMILY: "1,2"
+
+  MemoriumTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MemoriumTests
+    dependencies:
+      - target: Memorium
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.memorium.app.tests
+        GENERATE_INFOPLIST_FILE: YES
