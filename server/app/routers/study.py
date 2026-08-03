@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import get_profile, require_token
+from app.deps import get_profile, require_user
 from app.models import Card, CardKind, Profile, ReviewLog, Word, utcnow
 from app.scheduler import (
     apply_review,
@@ -24,7 +24,7 @@ from app.schemas import (
     StudyQueue,
 )
 
-router = APIRouter(tags=["study"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["study"], dependencies=[Depends(require_user)])
 
 BLANK = "____"
 

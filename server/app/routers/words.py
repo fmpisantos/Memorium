@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import get_profile, require_token
+from app.deps import get_profile, require_user
 from app.enrichment import get_service
 from app.models import EnrichmentStatus, Profile, Word
 from app.scheduler import new_cards_for_word
@@ -17,7 +17,7 @@ from app.schemas import (
     WordUpdate,
 )
 
-router = APIRouter(tags=["deck"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["deck"], dependencies=[Depends(require_user)])
 
 
 def _normalise(lemma: str) -> str:

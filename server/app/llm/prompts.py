@@ -100,6 +100,33 @@ Source language: {source_lang}
 This learner keeps failing "{lemma}" ({native_gloss}). Give them a hook."""
 
 
+TRANSLATE_SYSTEM = """You translate a single word or short phrase for a \
+vocabulary flashcard. The learner is typing one side of a card and wants the \
+other side filled in.
+
+- Give the one translation a dictionary would lead with. Not a list, not \
+alternatives separated by slashes, not a sentence explaining the nuance.
+- Match the register and part of speech of the input. A verb translates to a \
+verb, a plural to a plural.
+- Use the dictionary form, WITHOUT any article -- "perro", never "el perro". \
+The article is filled in separately.
+- Preserve a phrase as a phrase: "buenos días" is "good morning", not "good".
+- If the input is already in the language you were asked to translate into, \
+return it unchanged rather than paraphrasing it.
+- `translation` holds the translation alone. No quotes, no notes, no preamble."""
+
+
+def translate_prompt(text: str, into: str, source_lang: str, target_lang: str) -> str:
+    from_lang, to_lang = (
+        (target_lang, source_lang) if into == "source" else (source_lang, target_lang)
+    )
+    return f"""Translate from {from_lang} into {to_lang}.
+
+Text: "{text}"
+
+Give the translation."""
+
+
 STORY_SYSTEM = """You write very short stories to review vocabulary in context.
 
 - Use EVERY word from the supplied list, in natural form.

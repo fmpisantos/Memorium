@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.deps import require_token
 from app.models import EnrichmentStatus, Word
 
 router = APIRouter(tags=["health"])
@@ -51,8 +50,14 @@ async def _claude_cli_state() -> tuple[bool, str]:
     return True, str(_cli_state["detail"])
 
 
-@router.get("/health", dependencies=[Depends(require_token)])
+@router.get("/health")
 async def health(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
+    """Liveness, deliberately open.
+
+    A container healthcheck and a `curl` from another machine both need to work
+    before anyone has signed in, and the reply carries no deck content -- only
+    whether the process, the database and the Claude credentials are alive.
+    """
     try:
         db.execute(text("SELECT 1"))
         db_ok = True

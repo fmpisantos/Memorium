@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(SpeechService.self) private var speech
+    @Environment(AuthService.self) private var auth
 
     @State private var health: HealthStatus?
     @State private var enrichment: EnrichStatus?
@@ -43,6 +44,16 @@ struct SettingsView: View {
                     )
                 }
 
+                Section {
+                    Toggle("Translate automatically", isOn: $settings.autoTranslate)
+                } header: {
+                    Text("Adding words")
+                } footer: {
+                    Text(
+                        "Fill in either side of a new word and the other is translated for you. Off, the add sheet still offers a translate button beside each field."
+                    )
+                }
+
                 serverSection
 
                 Section("On-device grading") {
@@ -63,9 +74,19 @@ struct SettingsView: View {
                     TextField("Server URL", text: $settings.serverURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField("API token", text: $settings.apiToken)
                 } header: {
                     Text("Connection")
+                }
+
+                Section {
+                    LabeledContent("Signed in as", value: auth.email ?? "nobody")
+                    Button("Sign out", role: .destructive) { auth.signOut() }
+                } header: {
+                    Text("Account")
+                } footer: {
+                    Text(
+                        "Your server checks this address against its own allowed list on every request. Signing out here leaves the deck on the server untouched."
+                    )
                 }
 
                 if let message {

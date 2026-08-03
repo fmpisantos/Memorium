@@ -11,6 +11,7 @@ from app.llm.base import (
     GeneratedSentence,
     MnemonicOut,
     StoryOut,
+    TranslationOut,
     WordEnrichment,
 )
 from app.models import Enrichment, EnrichmentStatus, Profile, Word
@@ -19,9 +20,10 @@ from app.models import Enrichment, EnrichmentStatus, Profile, Word
 class FakeGenerator:
     """Stands in for Claude. `fail_with` makes it misbehave on demand."""
 
-    def __init__(self, fail_with: Exception | None = None, sentences=None):
+    def __init__(self, fail_with: Exception | None = None, sentences=None, translation=None):
         self.fail_with = fail_with
         self.calls: list[dict] = []
+        self.translation = translation
         self._sentences = (
             sentences
             if sentences is not None
@@ -64,6 +66,12 @@ class FakeGenerator:
         if self.fail_with:
             raise self.fail_with
         return StoryOut(title="t", target=" ".join(lemmas), native="n")
+
+    async def translate(self, text, into, source_lang, target_lang):
+        self.calls.append({"translate": text, "into": into})
+        if self.fail_with:
+            raise self.fail_with
+        return TranslationOut(translation=self.translation or f"{text}-in-{into}")
 
 
 @pytest.fixture
@@ -222,6 +230,20 @@ def test_sentences_whose_cloze_word_is_absent_are_dropped(client, db):
     assert [s.target for s in result.sentences] == ["Mi perro corre."]
 
 
+def test_a_quoted_translation_is_unwrapped(db):
+    """Models wrap bare answers in quotes; the quotes would land in the deck."""
+    from app.llm.agent_sdk import AgentSDKGenerator
+
+    generator = AgentSDKGenerator(model="x")
+
+    async def fake_generate(model_cls, system, user):
+        return TranslationOut(translation=' "el perro" ')
+
+    generator._generate = fake_generate
+    result = asyncio.run(generator.translate("dog", "target", "en-US", "es-ES"))
+    assert result.translation == "el perro"
+
+
 def test_grade_endpoint_uses_the_generator(client, db, fake):
     seed_profile(db)
     r = client.post(
@@ -240,6 +262,52 @@ def test_grade_endpoint_reports_unavailable_when_claude_is_down(client, db):
     try:
         seed_profile(db)
         r = client.post("/grade", json={"prompt": "p", "expected": "e", "given": "g"})
+        assert r.status_code == 503
+    finally:
+        set_service(None)
+
+
+def test_translate_into_target_uses_the_generator(client, db, fake):
+    seed_profile(db)
+    r = client.post("/translate", json={"text": "dog", "into": "target"})
+    assert r.status_code == 200
+    assert r.json() == {"translation": "dog-in-target", "into": "target"}
+    assert {"translate": "dog", "into": "target"} in fake.calls
+
+
+def test_translate_into_source_asks_for_the_other_direction(client, db, fake):
+    seed_profile(db)
+    r = client.post("/translate", json={"text": "perro", "into": "source"})
+    assert r.status_code == 200
+    assert r.json()["translation"] == "perro-in-source"
+
+
+def test_translate_rejects_a_direction_it_does_not_know(client, db, fake):
+    seed_profile(db)
+    assert client.post("/translate", json={"text": "perro", "into": "klingon"}).status_code == 422
+    assert client.post("/translate", json={"text": "", "into": "source"}).status_code == 422
+
+
+def test_translate_reports_unavailable_rather_than_saving_a_blank(client, db):
+    """An empty translation would silently overwrite the field with nothing."""
+    set_service(EnrichmentService(generator=FakeGenerator(translation="   "), workers=0))
+    try:
+        seed_profile(db)
+        r = client.post("/translate", json={"text": "perro", "into": "source"})
+        assert r.status_code == 503
+    finally:
+        set_service(None)
+
+
+def test_translate_reports_unavailable_when_claude_is_down(client, db):
+    set_service(
+        EnrichmentService(
+            generator=FakeGenerator(fail_with=ContentGenerationError("token expired")), workers=0
+        )
+    )
+    try:
+        seed_profile(db)
+        r = client.post("/translate", json={"text": "perro", "into": "source"})
         assert r.status_code == 503
     finally:
         set_service(None)

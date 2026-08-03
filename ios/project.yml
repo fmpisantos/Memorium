@@ -10,8 +10,18 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_APPROACHABLE_CONCURRENCY: YES
     DEVELOPMENT_TEAM: ""
+    # Ad-hoc signing, so no team is needed to build -- but signed, because an
+    # unsigned app has no entitlements at all and the Keychain then refuses
+    # every write with errSecMissingEntitlement (-34018). That failure is
+    # silent, and the symptom is the API token never surviving a relaunch.
     CODE_SIGNING_REQUIRED: NO
-    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_ALLOWED: YES
+    CODE_SIGN_IDENTITY: "-"
+
+packages:
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "9.2.0"
 
 targets:
   Memorium:
@@ -19,18 +29,50 @@ targets:
     platform: iOS
     sources:
       - path: Memorium
+    dependencies:
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      # The SwiftUI sign-in button, so the branding is Google's own rather
+      # than something approximated with a Label.
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
+    # A real Info.plist rather than GENERATE_INFOPLIST_FILE: Google's callback
+    # needs a CFBundleURLTypes entry, which the INFOPLIST_KEY_* settings cannot
+    # express.
+    info:
+      path: Memorium/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDisplayName: Memorium
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Speaking mode records audio and transcribes it. Without these two
+        # keys the app crashes the first time the microphone is touched.
+        NSMicrophoneUsageDescription: "Memorium listens while you practise saying words aloud, so it can tell you how close you got."
+        NSSpeechRecognitionUsageDescription: "Memorium transcribes what you say to score your pronunciation. Recognition runs on your device."
+        # Both come from your own Google OAuth iOS client -- see GOOGLE_CLIENT_ID
+        # below. Sign-in stays disabled, with an explanation on screen, until
+        # they are filled in.
+        GIDClientID: $(GOOGLE_CLIENT_ID)
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes: [$(GOOGLE_REVERSED_CLIENT_ID)]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.memorium.app
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Memorium
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
-        # Speaking mode records audio and transcribes it. Without these two
-        # keys the app crashes the first time the microphone is touched.
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Memorium listens while you practise saying words aloud, so it can tell you how close you got."
-        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Memorium transcribes what you say to score your pronunciation. Recognition runs on your device."
         TARGETED_DEVICE_FAMILY: "1,2"
+        # --- Google Sign-In ------------------------------------------------
+        # From the Google Cloud console: APIs & Services -> Credentials ->
+        # Create credentials -> OAuth client ID -> iOS, with the bundle ID
+        # above. There is no client secret for iOS clients.
+        #
+        #   GOOGLE_CLIENT_ID           123-abc.apps.googleusercontent.com
+        #   GOOGLE_REVERSED_CLIENT_ID  com.googleusercontent.apps.123-abc
+        #
+        # The same client ID goes in the server's MEMORIUM_GOOGLE_CLIENT_ID,
+        # which is what makes the server accept tokens minted for this app and
+        # nothing else. Re-run `xcodegen generate` after editing.
+        GOOGLE_CLIENT_ID: ""
+        GOOGLE_REVERSED_CLIENT_ID: ""
 
   MemoriumTests:
     type: bundle.unit-test

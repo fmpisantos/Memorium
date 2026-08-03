@@ -1,37 +1,66 @@
-import secrets
-
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import InvalidIdentity, is_allowed, verify_google_id_token
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import Profile
 
 
-def require_token(
+def require_user(
     authorization: str | None = Header(default=None),
     settings: Settings = Depends(get_settings),
-) -> None:
-    """Single shared bearer token guarding every route.
+) -> str:
+    """The authentication boundary: a verified, allowlisted Google account.
 
-    This is the only authentication boundary on the server, so it is compared
-    in constant time and a placeholder value is refused outright.
+    Sync on purpose. FastAPI runs sync dependencies in its threadpool, which
+    keeps the one blocking call in here -- fetching Google's signing keys, once
+    an hour -- off the event loop.
+
+    Returns the caller's email address, so a route that wants to know who is
+    asking can simply depend on it.
     """
-    if settings.api_token in ("", "change-me"):
+    if not settings.google_client_id:
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "MEMORIUM_API_TOKEN is unset. Refusing to serve with a default token.",
+            "MEMORIUM_GOOGLE_CLIENT_ID is unset. Refusing to serve without a way to "
+            "check who is calling.",
         )
+    allowed = settings.allowed_email_set
+    if not allowed:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "MEMORIUM_ALLOWED_EMAILS is empty. Refusing to serve with nobody allowed.",
+        )
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             "Missing bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    presented = authorization.removeprefix("Bearer ").strip()
-    if not secrets.compare_digest(presented, settings.api_token):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+
+    try:
+        claims = verify_google_id_token(
+            authorization.removeprefix("Bearer ").strip(), settings.google_client_id
+        )
+    except InvalidIdentity as exc:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    email = claims["email"]
+    if not is_allowed(email, allowed):
+        # 403, not 404 or a vague 401: the sign-in worked and retrying it will
+        # not help. The app says so instead of looping the user through Google.
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"{email} is not on this server's allowed list.",
+        )
+    return email
 
 
 def ensure_profile(db: Session) -> Profile:

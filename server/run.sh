@@ -52,7 +52,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 if [ ! -f .env ]; then
     echo "No .env found. Create one first:" >&2
     echo "  cp .env.example .env" >&2
-    echo "  python3 -c 'import secrets; print(secrets.token_urlsafe(32))'  # MEMORIUM_API_TOKEN" >&2
+    echo "  then fill in MEMORIUM_ALLOWED_EMAILS and MEMORIUM_GOOGLE_CLIENT_ID" >&2
     echo "  claude setup-token                                            # CLAUDE_CODE_OAUTH_TOKEN" >&2
     exit 1
 fi

@@ -9,12 +9,8 @@ def add_word(client, lemma="perro", gloss="dog"):
     return r.json()
 
 
-# --------------------------------------------------------------------------- #
-# Auth
-# --------------------------------------------------------------------------- #
-def test_every_route_requires_the_token(client):
-    for path in ("/health", "/words", "/study/queue", "/profile"):
-        assert client.get(path, headers={"Authorization": ""}).status_code == 401, path
+# Auth lives in test_auth.py: every route is checked there, against tokens
+# signed with a test key. /health is deliberately open.
 
 
 # --------------------------------------------------------------------------- #

@@ -12,9 +12,23 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/memorium.db"
 
     # --- auth ----------------------------------------------------------------
-    # Single shared bearer token. The app sends it on every request.
-    # There is no user system: this token IS the authentication boundary.
-    api_token: str = "change-me"
+    # Identity comes from Google: the app sends the ID token it already holds,
+    # and the server checks the signature, the audience, and then the address
+    # against the allowlist below. There is no password and no user table.
+    #
+    # The OAuth *client ID* of the iOS app, from the Google Cloud console. It
+    # is the expected `aud` of every ID token, which is what stops a token
+    # minted for some other app being replayed at this one.
+    google_client_id: str = ""
+    # Who may use this server, comma-separated. Anyone not on it is refused
+    # even with a perfectly valid Google login.
+    allowed_emails: str = ""
+
+    @property
+    def allowed_email_set(self) -> frozenset[str]:
+        """The allowlist, case-folded -- addresses are not case-sensitive."""
+        raw = self.allowed_emails.replace(";", ",").replace("\n", ",")
+        return frozenset(entry.strip().casefold() for entry in raw.split(",") if entry.strip())
 
     # --- Claude --------------------------------------------------------------
     # The Agent SDK spawns the `claude` CLI, which authenticates from the

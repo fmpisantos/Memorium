@@ -157,6 +157,10 @@ struct ProfileUpdate: Codable, Sendable {
     var timezone: String?
 }
 
+struct MeResponse: Codable, Sendable {
+    let email: String
+}
+
 struct HealthStatus: Codable, Sendable {
     let status: String
     let db: String
@@ -187,6 +191,24 @@ struct GradeAnswerRequest: Codable, Sendable {
 struct GradeAnswerResponse: Codable, Sendable {
     let verdict: String
     let reason: String
+}
+
+/// Which side of a card the server should fill in.
+enum TranslationDirection: String, Codable, Sendable {
+    /// Into the language being learned: the learner typed the gloss.
+    case target
+    /// Into the learner's own language: they typed the foreign word.
+    case source
+}
+
+struct TranslateRequest: Codable, Sendable {
+    let text: String
+    let into: TranslationDirection
+}
+
+struct TranslateResponse: Codable, Sendable {
+    let translation: String
+    let into: TranslationDirection
 }
 
 struct StoryResponse: Codable, Sendable {

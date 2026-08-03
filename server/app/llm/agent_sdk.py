@@ -18,7 +18,7 @@ import asyncio
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from pydantic import BaseModel, ValidationError
@@ -29,6 +29,7 @@ from app.llm.base import (
     ContentGenerationError,
     MnemonicOut,
     StoryOut,
+    TranslationOut,
     WordEnrichment,
     json_schema,
 )
@@ -145,6 +146,23 @@ class AgentSDKGenerator:
             prompts.MNEMONIC_SYSTEM,
             prompts.mnemonic_prompt(lemma, native_gloss, source_lang, target_lang),
         )
+
+    async def translate(
+        self,
+        text: str,
+        into: Literal["source", "target"],
+        source_lang: str,
+        target_lang: str,
+    ) -> TranslationOut:
+        result = await self._generate(
+            TranslationOut,
+            prompts.TRANSLATE_SYSTEM,
+            prompts.translate_prompt(text, into, source_lang, target_lang),
+        )
+        # Models like to wrap a bare answer in quotes despite being told not
+        # to, and the stray character would end up in the deck.
+        result.translation = result.translation.strip().strip('"“”').strip()
+        return result
 
     async def daily_story(
         self, lemmas: list[str], source_lang: str, target_lang: str

@@ -9,17 +9,13 @@ final class AppSettings {
         static let targetLang = "targetLang"
         static let onboarded = "onboarded"
         static let speakingMode = "speakingMode"
+        static let autoTranslate = "autoTranslate"
     }
 
     private let defaults = UserDefaults.standard
 
     var serverURL: String {
         didSet { defaults.set(serverURL, forKey: Key.serverURL) }
-    }
-
-    /// Held in the Keychain, not UserDefaults.
-    var apiToken: String {
-        didSet { Keychain.set(apiToken, for: "apiToken") }
     }
 
     var sourceLang: String {
@@ -39,23 +35,32 @@ final class AppSettings {
         didSet { defaults.set(speakingMode, forKey: Key.speakingMode) }
     }
 
+    /// When on, adding a word fills in whichever side was left blank.
+    var autoTranslate: Bool {
+        didSet { defaults.set(autoTranslate, forKey: Key.autoTranslate) }
+    }
+
     init() {
         serverURL = defaults.string(forKey: Key.serverURL) ?? "http://localhost:8000"
-        apiToken = Keychain.get("apiToken") ?? ""
         sourceLang = defaults.string(forKey: Key.sourceLang) ?? "en-US"
         targetLang = defaults.string(forKey: Key.targetLang) ?? "es-ES"
         hasOnboarded = defaults.bool(forKey: Key.onboarded)
         speakingMode = defaults.bool(forKey: Key.speakingMode)
+        // On by default -- typing both halves of every word is the friction
+        // that stops a deck growing. `object(forKey:)` rather than `bool`, so
+        // that having turned it off survives a relaunch.
+        autoTranslate = defaults.object(forKey: Key.autoTranslate) as? Bool ?? true
 
         #if DEBUG
-            // Skip onboarding when launched with credentials in the
+            // Skip the server-address step when launched with one in the
             // environment, so the simulator can be driven from a script:
             //   xcrun simctl launch booted com.memorium.app \
-            //     --env MEMORIUM_DEV_URL=... --env MEMORIUM_DEV_TOKEN=...
+            //     --env MEMORIUM_DEV_URL=...
+            // Signing in with Google still has to happen by hand -- that is
+            // rather the point of it.
             let env = ProcessInfo.processInfo.environment
-            if let url = env["MEMORIUM_DEV_URL"], let token = env["MEMORIUM_DEV_TOKEN"] {
+            if let url = env["MEMORIUM_DEV_URL"] {
                 serverURL = url
-                apiToken = token
                 hasOnboarded = true
                 if let source = env["MEMORIUM_DEV_SOURCE"] { sourceLang = source }
                 if let target = env["MEMORIUM_DEV_TARGET"] { targetLang = target }
@@ -63,12 +68,24 @@ final class AppSettings {
         #endif
     }
 
+    /// A usable server address. Being *allowed* to use it is a separate
+    /// question, and `AuthService` answers that one.
     var isConfigured: Bool {
-        !apiToken.isEmpty && URL(string: serverURL) != nil
+        !serverURL.trimmingCharacters(in: .whitespaces).isEmpty
+            && URL(string: serverURL)?.scheme != nil
     }
 
     func makeClient() -> APIClient {
-        APIClient(baseURL: URL(string: serverURL)!, token: apiToken)
+        guard let url = URL(string: serverURL), url.scheme != nil else {
+            // Reported as "no server configured" rather than as a failure to
+            // reach one, which is a different thing to go and fix.
+            return APIClient(baseURL: URL(string: "http://unset.invalid")!) {
+                throw APIError.notConfigured
+            }
+        }
+        // The identity is fetched per request, so a token that expires
+        // mid-session is refreshed rather than surfacing as a logout.
+        return APIClient(baseURL: url) { try await AuthService.shared.idToken() }
     }
 }
 

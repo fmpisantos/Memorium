@@ -55,6 +55,10 @@ class MnemonicOut(_Strict):
     mnemonic: str
 
 
+class TranslationOut(_Strict):
+    translation: str
+
+
 class StoryOut(_Strict):
     title: str
     target: str
@@ -89,6 +93,14 @@ class ContentGenerator(Protocol):
     async def mnemonic(
         self, lemma: str, native_gloss: str, source_lang: str, target_lang: str
     ) -> MnemonicOut: ...
+
+    async def translate(
+        self,
+        text: str,
+        into: Literal["source", "target"],
+        source_lang: str,
+        target_lang: str,
+    ) -> TranslationOut: ...
 
     async def daily_story(
         self, lemmas: list[str], source_lang: str, target_lang: str

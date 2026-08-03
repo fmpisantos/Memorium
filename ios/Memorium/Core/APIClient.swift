@@ -3,6 +3,10 @@ import Foundation
 enum APIError: LocalizedError {
     case notConfigured
     case unauthorized
+    /// Signed in, verified, and still not allowed: the address is not on the
+    /// server's list. Signing in again cannot fix it, so it is kept separate
+    /// from `unauthorized` and carries the server's own wording.
+    case notAllowed(String)
     case offline
     case server(status: Int, detail: String)
     case decoding(String)
@@ -12,7 +16,11 @@ enum APIError: LocalizedError {
         case .notConfigured:
             "No server configured yet."
         case .unauthorized:
-            "The server rejected the token. Check it in Settings."
+            "Your Google session has expired. Sign in again in Settings."
+        case let .notAllowed(detail):
+            detail.isEmpty
+                ? "This Google account isn't allowed to use that server."
+                : detail
         case .offline:
             "Can't reach the server."
         case let .server(status, detail):
@@ -32,7 +40,22 @@ enum APIError: LocalizedError {
 
 struct APIClient: Sendable {
     let baseURL: URL
-    let token: String
+
+    /// Asked for on every request rather than captured once: a Google ID token
+    /// is good for an hour, and `AuthService` renews it underneath us.
+    /// Returning "" sends the request unauthenticated, which is what /health
+    /// wants during setup.
+    let token: @Sendable () async throws -> String
+
+    init(baseURL: URL, token: @escaping @Sendable () async throws -> String) {
+        self.baseURL = baseURL
+        self.token = token
+    }
+
+    /// For the one route that needs no identity: /health, during setup.
+    static func anonymous(baseURL: URL) -> APIClient {
+        APIClient(baseURL: baseURL) { "" }
+    }
 
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
@@ -65,7 +88,7 @@ struct APIClient: Sendable {
         query: [URLQueryItem] = [],
         body: Data? = nil
     ) async throws -> Data {
-        guard !token.isEmpty else { throw APIError.notConfigured }
+        let bearer = try await token()
 
         var components = URLComponents(
             url: baseURL.appendingPathComponent(path),
@@ -75,7 +98,9 @@ struct APIClient: Sendable {
 
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if !bearer.isEmpty {
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        }
         request.timeoutInterval = 30
         if let body {
             request.httpBody = body
@@ -91,17 +116,20 @@ struct APIClient: Sendable {
         }
 
         guard let http = response as? HTTPURLResponse else { throw APIError.offline }
+        let detail = {
+            (try? Self.decoder.decode([String: String].self, from: data))?["detail"]
+                ?? String(data: data, encoding: .utf8)
+                ?? ""
+        }
         switch http.statusCode {
         case 200 ..< 300:
             return data
-        case 401, 403:
+        case 401:
             throw APIError.unauthorized
+        case 403:
+            throw APIError.notAllowed(String(detail().prefix(300)))
         default:
-            let detail =
-                (try? Self.decoder.decode([String: String].self, from: data))?["detail"]
-                ?? String(data: data, encoding: .utf8)
-                ?? ""
-            throw APIError.server(status: http.statusCode, detail: String(detail.prefix(300)))
+            throw APIError.server(status: http.statusCode, detail: String(detail().prefix(300)))
         }
     }
 
@@ -117,6 +145,12 @@ struct APIClient: Sendable {
 
     func health() async throws -> HealthStatus {
         try decode(HealthStatus.self, from: await request("GET", "health"))
+    }
+
+    /// Whether this server accepts the signed-in account. Throws
+    /// `.notAllowed` naming the address when it doesn't.
+    func me() async throws -> String {
+        try decode(MeResponse.self, from: await request("GET", "me")).email
     }
 
     func profile() async throws -> Profile {
@@ -182,6 +216,14 @@ struct APIClient: Sendable {
             GradeAnswerRequest(prompt: prompt, expected: expected, given: given)
         )
         return try decode(GradeAnswerResponse.self, from: await request("POST", "grade", body: body))
+    }
+
+    /// Fills the other half of a word being added. Returns the translation
+    /// alone -- an empty one is a server error, not a result.
+    func translate(_ text: String, into: TranslationDirection) async throws -> String {
+        let body = try Self.encoder.encode(TranslateRequest(text: text, into: into))
+        let data = try await request("POST", "translate", body: body)
+        return try decode(TranslateResponse.self, from: data).translation
     }
 
     func enrichmentStatus() async throws -> EnrichStatus {

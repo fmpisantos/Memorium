@@ -1,17 +1,18 @@
 from datetime import date
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import get_profile, require_token
+from app.deps import get_profile, require_user
 from app.enrichment import get_service
 from app.llm.base import ContentGenerationError
 from app.models import Card, Enrichment, EnrichmentStatus, Profile, Word, utcnow
 
-router = APIRouter(tags=["content"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["content"], dependencies=[Depends(require_user)])
 
 
 class EnrichRequest(BaseModel):
@@ -36,6 +37,18 @@ class GradeAnswerRequest(BaseModel):
 class GradeAnswerResponse(BaseModel):
     verdict: str
     reason: str
+
+
+class TranslateRequest(BaseModel):
+    text: Annotated[str, Field(min_length=1, max_length=400)]
+    # Which side of the card is missing: "target" when the learner typed the
+    # gloss and wants the foreign word, "source" the other way round.
+    into: Literal["source", "target"]
+
+
+class TranslateResponse(BaseModel):
+    translation: str
+    into: str
 
 
 class StoryResponse(BaseModel):
@@ -106,6 +119,34 @@ async def grade_answer(
     except ContentGenerationError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     return GradeAnswerResponse(verdict=judgement.verdict, reason=judgement.reason)
+
+
+@router.post("/translate", response_model=TranslateResponse)
+async def translate(
+    payload: TranslateRequest,
+    profile: Profile = Depends(get_profile),
+):
+    """Fill in the other side of a card being added.
+
+    Typing both halves of every word is the friction that stops a deck growing,
+    so the app offers this from whichever field the learner filled in first.
+    """
+    try:
+        result = await get_service().generator.translate(
+            text=payload.text.strip(),
+            into=payload.into,
+            source_lang=profile.source_lang,
+            target_lang=profile.target_lang,
+        )
+    except ContentGenerationError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+    translation = result.translation.strip()
+    if not translation:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Claude returned an empty translation"
+        )
+    return TranslateResponse(translation=translation, into=payload.into)
 
 
 @router.post("/words/{word_id}/mnemonic")
