@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.db import SessionLocal, init_db
 from app.deps import ensure_profile
 from app.enrichment import get_service
-from app.routers import auth, enrich, health, study, words
+from app.routers import auth, enrich, health, practice, study, words
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -37,4 +37,5 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(words.router)
 app.include_router(study.router)
+app.include_router(practice.router)
 app.include_router(enrich.router)

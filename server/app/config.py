@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     grade_model: str = ""
     mnemonic_model: str = ""
     story_model: str = ""
+    # Practice phrases. The task most worth raising to a bigger model: every
+    # other one is read once, while a phrase is dictated, transcribed and
+    # graded -- so a wrong ending in it is a wrong ending the learner practises.
+    phrase_model: str = ""
     # Each call forks a CLI subprocess, so keep this small.
     enrichment_workers: int = 2
     # Per-call ceiling so a wedged generation can't hang the queue forever.
@@ -56,7 +60,7 @@ class Settings(BaseSettings):
         """Model per task, with `claude_model` filling in the blanks."""
         return {
             task: getattr(self, f"{task}_model") or self.claude_model
-            for task in ("translate", "enrich", "grade", "mnemonic", "story")
+            for task in ("translate", "enrich", "grade", "mnemonic", "story", "phrase")
         }
 
     # --- study defaults (seeded into the profile on first run) ---------------

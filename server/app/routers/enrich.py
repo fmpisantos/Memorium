@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.deps import get_profile, require_user
 from app.enrichment import get_service
-from app.llm.base import ContentGenerationError
+from app.llm.base import ContentGenerationError, GradeKind
 from app.models import Card, Enrichment, EnrichmentStatus, Profile, Word, utcnow
 
 router = APIRouter(tags=["content"], dependencies=[Depends(require_user)])
@@ -36,6 +36,11 @@ class GradeAnswerRequest(BaseModel):
     prompt: str
     expected: str
     given: str
+    # What was being asked. A word and a translated sentence are marked on
+    # meaning; a dictation is marked on the words themselves, because it is a
+    # listening test and a perfect paraphrase means the learner did not hear
+    # it. Defaulted, so a client that predates the phrase screens is unchanged.
+    kind: GradeKind = "word"
 
 
 class GradeAnswerResponse(BaseModel):
@@ -121,11 +126,11 @@ async def grade_answer(
     payload: GradeAnswerRequest,
     profile: Profile = Depends(get_profile),
 ):
-    """Fallback answer grading.
+    """Fallback answer grading, for a word or for a whole sentence.
 
     The app tries a normalised string match first, then its on-device model.
     This is only reached when neither could decide, or the phone has no
-    Apple Intelligence.
+    Apple Intelligence. `kind` picks the rubric -- see `prompts.grade_system`.
     """
     try:
         judgement = await get_service().generator.grade_answer(
@@ -134,6 +139,7 @@ async def grade_answer(
             given=payload.given,
             source_lang=profile.source_lang,
             target_lang=profile.target_lang,
+            kind=payload.kind,
         )
     except ContentGenerationError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc

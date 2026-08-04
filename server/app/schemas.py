@@ -180,3 +180,30 @@ class GradeResult(BaseModel):
 
 class GradeBatchResult(BaseModel):
     results: list[GradeResult]
+
+
+# --------------------------------------------------------------------------- #
+# Phrase practice
+# --------------------------------------------------------------------------- #
+class PhraseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    target: str
+    native: str
+    # The deck words it was built from. Shown after the answer, so a sentence
+    # you could not finish points at the words it was made of.
+    lemmas: list[str] = []
+
+
+class PhraseSetOut(BaseModel):
+    """A practice session's worth of sentences.
+
+    Both sides of every phrase are sent, because which side is the question is
+    the app's decision -- hearing one and writing it down, reading it in one
+    language and saying it in the other, are the same phrase asked four ways.
+    """
+
+    target_lang: str
+    source_lang: str
+    phrases: list[PhraseOut]

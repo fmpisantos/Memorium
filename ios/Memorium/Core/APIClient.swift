@@ -213,13 +213,28 @@ struct APIClient: Sendable {
 
     // MARK: - Content
 
-    func gradeAnswer(prompt: String, expected: String, given: String) async throws
-        -> GradeAnswerResponse
-    {
+    func gradeAnswer(
+        prompt: String, expected: String, given: String, kind: GradeKind = .word
+    ) async throws -> GradeAnswerResponse {
         let body = try Self.encoder.encode(
-            GradeAnswerRequest(prompt: prompt, expected: expected, given: given)
+            GradeAnswerRequest(prompt: prompt, expected: expected, given: given, kind: kind)
         )
         return try decode(GradeAnswerResponse.self, from: await request("POST", "grade", body: body))
+    }
+
+    // MARK: - Phrase practice
+
+    /// A session's worth of sentences built from words already in the deck.
+    ///
+    /// `refresh` asks the server to write new ones rather than serving what it
+    /// has stored. Everything it holds is a fallback when Claude can't be
+    /// reached, so a session is still possible on a bad connection.
+    func phrases(count: Int = 10, refresh: Bool = false) async throws -> PhraseSet {
+        var query = [URLQueryItem(name: "count", value: String(count))]
+        if refresh { query.append(URLQueryItem(name: "refresh", value: "true")) }
+        return try decode(
+            PhraseSet.self, from: await request("GET", "practice/phrases", query: query)
+        )
     }
 
     /// Fills the other half of a word being added. Returns the translation

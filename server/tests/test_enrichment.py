@@ -9,8 +9,10 @@ from app.llm.base import (
     AnswerJudgement,
     BatchTranslationOut,
     ContentGenerationError,
+    GeneratedPhrase,
     GeneratedSentence,
     MnemonicOut,
+    PhraseSet,
     StoryOut,
     TranslationOut,
     WordEnrichment,
@@ -27,10 +29,14 @@ class FakeGenerator:
         sentences=None,
         translation=None,
         declines: set[str] | None = None,
+        phrases=None,
     ):
         self.fail_with = fail_with
         self.calls: list[dict] = []
         self.translation = translation
+        # Practice phrases: a fixed list, or numbered ones written on demand.
+        self.phrases = phrases
+        self.written = 0
         # Words this fake refuses, to stand for the ones Claude comes back
         # empty on.
         self.declines = declines or set()
@@ -59,12 +65,36 @@ class FakeGenerator:
             sentences=self._sentences,
         )
 
-    async def grade_answer(self, prompt, expected, given, source_lang, target_lang):
+    async def grade_answer(
+        self, prompt, expected, given, source_lang, target_lang, kind="word"
+    ):
+        self.calls.append({"grade": given, "kind": kind})
         if self.fail_with:
             raise self.fail_with
         correct = given.strip().lower() == expected.strip().lower()
         return AnswerJudgement(
             verdict="correct" if correct else "wrong", reason="because" if not correct else "ok"
+        )
+
+    async def practice_phrases(self, count, known_words, focus_words, source_lang, target_lang):
+        self.calls.append(
+            {"phrases": count, "known_words": known_words, "focus_words": focus_words}
+        )
+        if self.fail_with:
+            raise self.fail_with
+        if self.phrases is not None:
+            return PhraseSet(phrases=self.phrases[:count])
+        # Numbered, so a test can tell one generated batch from the next.
+        self.written += count
+        return PhraseSet(
+            phrases=[
+                GeneratedPhrase(
+                    target=f"Frase {index}.",
+                    native=f"Phrase {index}.",
+                    uses=known_words[:1],
+                )
+                for index in range(self.written - count + 1, self.written + 1)
+            ]
         )
 
     async def mnemonic(self, lemma, native_gloss, source_lang, target_lang):

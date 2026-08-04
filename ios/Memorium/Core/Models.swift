@@ -211,10 +211,20 @@ struct EnrichStatus: Codable, Sendable {
     let failed: Int
 }
 
+/// What was being asked, which decides how the answer is marked.
+///
+/// A word and a translated sentence are marked on meaning; a dictation is
+/// marked on the words themselves, because it is a listening test and a
+/// flawless paraphrase means the learner did not actually hear it.
+enum GradeKind: String, Codable, Sendable {
+    case word, sentence, dictation
+}
+
 struct GradeAnswerRequest: Codable, Sendable {
     let prompt: String
     let expected: String
     let given: String
+    var kind: GradeKind = .word
 }
 
 struct GradeAnswerResponse: Codable, Sendable {
@@ -251,6 +261,25 @@ struct TranslateBatchResponse: Codable, Sendable {
     /// attached to the word they belong to.
     let translations: [String?]
     let into: TranslationDirection
+}
+
+/// A whole sentence, built from words already in the deck.
+///
+/// Both sides arrive together because which one is the question is this app's
+/// decision: hearing it and writing it down, or reading it in one language and
+/// producing it in the other, are the same phrase asked four ways.
+struct Phrase: Codable, Sendable, Identifiable, Equatable {
+    let id: String
+    let target: String
+    let native: String
+    /// The deck words it was built from, shown once the answer is out.
+    let lemmas: [String]
+}
+
+struct PhraseSet: Codable, Sendable, Equatable {
+    let targetLang: String
+    let sourceLang: String
+    let phrases: [Phrase]
 }
 
 struct StoryResponse: Codable, Sendable {

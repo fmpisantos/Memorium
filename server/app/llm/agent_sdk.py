@@ -28,7 +28,9 @@ from app.llm.base import (
     AnswerJudgement,
     BatchTranslationOut,
     ContentGenerationError,
+    GradeKind,
     MnemonicOut,
+    PhraseSet,
     StoryOut,
     TranslationOut,
     WordEnrichment,
@@ -215,13 +217,37 @@ class AgentSDKGenerator:
         given: str,
         source_lang: str,
         target_lang: str,
+        kind: GradeKind = "word",
     ) -> AnswerJudgement:
         return await self._generate(
             AnswerJudgement,
-            prompts.GRADE_SYSTEM,
-            prompts.grade_prompt(prompt, expected, given, source_lang, target_lang),
+            prompts.grade_system(kind),
+            prompts.grade_prompt(prompt, expected, given, source_lang, target_lang, kind),
             task="grade",
         )
+
+    async def practice_phrases(
+        self,
+        count: int,
+        known_words: list[str],
+        focus_words: list[str],
+        source_lang: str,
+        target_lang: str,
+    ) -> PhraseSet:
+        result = await self._generate(
+            PhraseSet,
+            prompts.PHRASE_SYSTEM,
+            prompts.phrase_prompt(count, known_words, focus_words, source_lang, target_lang),
+            task="phrase",
+        )
+        # A sentence missing either side is unusable: the learner is asked to
+        # produce one from the other, and both directions are offered.
+        result.phrases = [
+            phrase
+            for phrase in result.phrases
+            if phrase.target.strip() and phrase.native.strip()
+        ]
+        return result
 
     async def mnemonic(
         self, lemma: str, native_gloss: str, source_lang: str, target_lang: str

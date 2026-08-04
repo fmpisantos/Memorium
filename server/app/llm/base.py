@@ -46,6 +46,26 @@ class WordEnrichment(_Strict):
     sentences: list[GeneratedSentence]
 
 
+class GeneratedPhrase(_Strict):
+    target: str
+    native: str
+    # The supplied vocabulary this sentence was built from, in the dictionary
+    # form it was given in -- so a phrase can be retired when its words leave
+    # the deck.
+    uses: list[str]
+
+
+class PhraseSet(_Strict):
+    phrases: list[GeneratedPhrase]
+
+
+# What kind of answer is being graded. A word, a sentence the learner
+# translated, and a sentence they transcribed from audio are three different
+# questions: the first two accept any wording that means the same thing, and
+# the third has exactly one right answer.
+GradeKind = Literal["word", "sentence", "dictation"]
+
+
 class AnswerJudgement(_Strict):
     verdict: Literal["correct", "close", "wrong"]
     reason: str
@@ -100,7 +120,17 @@ class ContentGenerator(Protocol):
         given: str,
         source_lang: str,
         target_lang: str,
+        kind: GradeKind = "word",
     ) -> AnswerJudgement: ...
+
+    async def practice_phrases(
+        self,
+        count: int,
+        known_words: list[str],
+        focus_words: list[str],
+        source_lang: str,
+        target_lang: str,
+    ) -> PhraseSet: ...
 
     async def mnemonic(
         self, lemma: str, native_gloss: str, source_lang: str, target_lang: str

@@ -11,13 +11,15 @@ struct MemoriumApp: App {
     /// than in memory.
     private let container: ModelContainer = {
         do {
-            return try ModelContainer(for: PendingGrade.self, CachedQueue.self)
+            return try ModelContainer(
+                for: PendingGrade.self, CachedQueue.self, CachedPhrases.self
+            )
         } catch {
             // The cache is disposable; losing it is better than refusing to
             // launch. Unsent grades would be lost, which is why this is a
             // last resort rather than the first thing tried.
             return try! ModelContainer(
-                for: PendingGrade.self, CachedQueue.self,
+                for: PendingGrade.self, CachedQueue.self, CachedPhrases.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
         }
@@ -52,6 +54,9 @@ struct RootView: View {
             TabView {
                 Tab("Study", systemImage: "brain.head.profile") {
                     StudyView()
+                }
+                Tab("Phrases", systemImage: "text.bubble") {
+                    PracticeView()
                 }
                 Tab("Deck", systemImage: "text.book.closed") {
                     DeckView()

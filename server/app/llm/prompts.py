@@ -70,14 +70,85 @@ language. For "correct" it may be a brief confirmation. For anything else, say \
 specifically what was off. Never be sarcastic or discouraging."""
 
 
+SENTENCE_GRADE_SYSTEM = """You grade a language learner's translation of a \
+whole sentence. You are fair, not pedantic: a sentence has many correct \
+translations and you are judging whether they said the same thing, not whether \
+they matched a reference.
+
+- "correct": conveys the same meaning in well-formed language. Different word \
+order, a synonym, a contraction, a regional variant, a different but valid \
+tense for the same event -- all fine. Punctuation and capitalisation are not \
+graded.
+- "close": the meaning came through but something is genuinely wrong -- a wrong \
+tense, agreement or gender, a missing small word that changes the grammar, a \
+misspelling that makes a different word.
+- "wrong": the meaning is different, a negation or a key word is missing, or \
+most of the sentence is not there.
+
+`reason` is one short sentence in the learner's source language. When it is not \
+correct, quote the exact words that were off and give the form they should have \
+used -- "said" for "says", not "check your verb". Never be sarcastic or \
+discouraging."""
+
+
+DICTATION_GRADE_SYSTEM = """You grade a dictation. The learner heard a sentence \
+spoken aloud and wrote down what they heard, in the same language. Nothing was \
+shown to them.
+
+This is a listening test, so there is exactly one right answer and the wording \
+is the point -- do not accept a paraphrase, however good.
+
+- "correct": every word is there, in order. Ignore punctuation, capitalisation, \
+and an accent or special letter their keyboard makes hard to type.
+- "close": one or two words misheard, misspelled or dropped, with the sentence \
+otherwise intact.
+- "wrong": several words wrong or missing, or a different sentence.
+
+`reason` is one short sentence in the learner's source language naming the words \
+that differ and what was actually said -- "it was 'trenger', not 'trener'". \
+Getting a word wrong here is a hearing mistake, not a failure; say it plainly \
+and without discouragement."""
+
+
+def grade_system(kind: str) -> str:
+    """The right rubric for what is being graded.
+
+    One endpoint grades all three, because the tiers in front of it -- exact
+    match, then the on-device model -- are the same either way. The rubric is
+    not: marking a good translation wrong for not matching word for word, or
+    accepting a paraphrase in a dictation, would both be the grader failing at
+    the exercise the learner actually did.
+    """
+    return {
+        "sentence": SENTENCE_GRADE_SYSTEM,
+        "dictation": DICTATION_GRADE_SYSTEM,
+    }.get(kind, GRADE_SYSTEM)
+
+
 def grade_prompt(
-    prompt: str, expected: str, given: str, source_lang: str, target_lang: str
+    prompt: str,
+    expected: str,
+    given: str,
+    source_lang: str,
+    target_lang: str,
+    kind: str = "word",
 ) -> str:
+    if kind == "dictation":
+        return f"""Target language: {target_lang}
+Source language: {source_lang}
+
+The learner heard this sentence spoken aloud, with no text on screen:
+"{expected}"
+
+They wrote down: "{given}"
+
+Grade the transcription."""
+
+    shown = f'The learner was shown: "{prompt}"\n' if prompt else ""
     return f"""Target language: {target_lang}
 Source language: {source_lang}
 
-The learner was shown: "{prompt}"
-Expected answer: "{expected}"
+{shown}Expected answer: "{expected}"
 They typed: "{given}"
 
 Grade it."""
@@ -174,3 +245,62 @@ Source language: {source_lang}
 Words due for review today: {", ".join(lemmas)}
 
 Write the story."""
+
+
+PHRASE_SYSTEM = """You write whole sentences for a learner to practise on, \
+built out of the vocabulary they already know.
+
+The constraint is the entire point. The learner is going to hear or read one of \
+these and have to produce the other side of it from memory, so a sentence \
+containing a word they have never met is not hard, it is impossible -- and \
+being unable to finish it teaches them nothing except that they are behind.
+
+- Every content word in `target` must come from the supplied vocabulary, in \
+whatever form the grammar needs: conjugated, declined, pluralised, negated.
+- Function words are always allowed and do not count as new vocabulary: \
+articles, pronouns, numbers, common prepositions and conjunctions, question \
+words, and the verbs "to be" and "to have".
+- Never reach for a content word that is not on the list, not even an obvious \
+one. If the list will not support the sentence you had in mind, write a \
+different sentence.
+- Write things a person would actually say -- an errand, a complaint, a \
+question to a friend. Not textbook specimens, and not five variations on one \
+idea.
+- Vary the shape and the length deliberately: some of three or four words, some \
+of ten; statements, questions, and requests. Vary who they are about, too -- a \
+set where every sentence begins "I ..." is a pattern the learner starts \
+answering from, not practice. Include at least one question.
+- Each one stands alone. They are not a story and will be shown in isolation, \
+in a random order.
+- `native` is how someone would really say that in their own language, not a \
+word-for-word gloss. The learner is asked to produce one side from the other, \
+so a stilted translation makes a correct answer look wrong.
+- `uses` lists the supplied vocabulary the sentence was built from, spelled \
+exactly as it was given to you, in dictionary form."""
+
+
+def phrase_prompt(
+    count: int,
+    known_words: list[str],
+    focus_words: list[str],
+    source_lang: str,
+    target_lang: str,
+) -> str:
+    known = ", ".join(known_words) if known_words else "(none yet)"
+    focus = ", ".join(focus_words)
+    focus_line = (
+        f"""
+Work these in first, spread across the sentences -- they are the words this
+learner is closest to forgetting:
+{focus}
+"""
+        if focus_words
+        else ""
+    )
+    return f"""Target language: {target_lang}
+Source language: {source_lang}
+
+The vocabulary this learner knows, and the only content words you may use:
+{known}
+{focus_line}
+Write {count} sentences."""

@@ -9,6 +9,7 @@ final class AppSettings {
         static let onboarded = "onboarded"
         static let speakingMode = "speakingMode"
         static let autoTranslate = "autoTranslate"
+        static let practiceMode = "practiceMode"
     }
 
     private let defaults = UserDefaults.standard
@@ -41,6 +42,12 @@ final class AppSettings {
         didSet { defaults.set(autoTranslate, forKey: Key.autoTranslate) }
     }
 
+    /// Which way round phrase practice was left. Remembered because it is a
+    /// choice about what you are working on this week, not a per-session one.
+    var practiceMode: PracticeMode {
+        didSet { defaults.set(practiceMode.rawValue, forKey: Key.practiceMode) }
+    }
+
     init() {
         var address = (Bundle.main.object(forInfoDictionaryKey: "MemoriumAPIURL") as? String ?? "")
             .trimmingCharacters(in: .whitespaces)
@@ -52,6 +59,11 @@ final class AppSettings {
         // that stops a deck growing. `object(forKey:)` rather than `bool`, so
         // that having turned it off survives a relaunch.
         autoTranslate = defaults.object(forKey: Key.autoTranslate) as? Bool ?? true
+        // Dictation to begin with: hearing a whole sentence and writing it
+        // down is the exercise the cards do least of.
+        practiceMode =
+            (defaults.string(forKey: Key.practiceMode).flatMap(PracticeMode.init(rawValue:)))
+            ?? .dictation
 
         #if DEBUG
             // Point a debug build at a server on the desk without rebuilding,
@@ -129,5 +141,11 @@ struct LanguageOption: Identifiable, Hashable, Sendable {
 
     static func name(for code: String) -> String {
         all.first { $0.code == code }?.name ?? code
+    }
+
+    /// The language without its region, for wording a sentence around: "Read
+    /// the Norwegian" rather than "Read the Norwegian (Bokmål)".
+    static func shortName(for code: String) -> String {
+        name(for: code).components(separatedBy: " (").first ?? code
     }
 }

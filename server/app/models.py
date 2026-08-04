@@ -268,6 +268,47 @@ class ReviewLog(Base):
         super().__init__(**kw)
 
 
+class Phrase(Base):
+    """A whole sentence built from vocabulary the learner already knows.
+
+    Stored rather than generated per session, for two reasons. A sentence made
+    only of your own words is slow to write and cheap to keep, so a session can
+    start on what is already here while the next batch is written. And the
+    language pair is recorded on the row: change the pair and the old sentences
+    stop being served rather than turning up as practice in a language nobody
+    is learning any more.
+
+    Not scheduled. Cards carry the deck's memory; these are for using the words
+    the cards have already taught, and answering one moves nothing.
+    """
+
+    __tablename__ = "phrases"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    target: Mapped[str] = mapped_column(Text)
+    native: Mapped[str] = mapped_column(Text)
+    # Deck lemmas the sentence was built from, as supplied to the generator.
+    # Kept so a phrase can be dropped once its words leave the deck.
+    lemmas: Mapped[list] = mapped_column(JSON, default=list)
+
+    source_lang: Mapped[str] = mapped_column(String(16))
+    target_lang: Mapped[str] = mapped_column(String(16), index=True)
+
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    served_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Null until first served, which is how a never-seen phrase is picked
+    # ahead of one already practised.
+    last_served_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, default=None, index=True
+    )
+
+    def __init__(self, **kw):
+        kw.setdefault("lemmas", [])
+        kw.setdefault("served_count", 0)
+        kw.setdefault("created_at", utcnow())
+        super().__init__(**kw)
+
+
 class Enrichment(Base):
     __tablename__ = "enrichments"
 

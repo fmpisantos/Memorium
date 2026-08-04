@@ -40,7 +40,7 @@ struct SettingsView: View {
                     Text("Study")
                 } footer: {
                     Text(
-                        "Reviews are never capped — only how many brand-new words get introduced. Raising this raises tomorrow's review load too."
+                        "Reviews are never capped — only how many brand-new words get introduced. Raising this raises tomorrow's review load too. Speaking replaces typing on any card whose answer is in \(LanguageOption.shortName(for: settings.targetLang)), and on every phrase."
                     )
                 }
 

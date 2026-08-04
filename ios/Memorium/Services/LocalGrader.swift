@@ -63,7 +63,10 @@ final class LocalGrader {
         "ı": "i",  // Turkish dotless i
     ]
 
-    nonisolated static func normalise(_ text: String) -> String {
+    /// - Parameter droppingArticles: leave this off for a dictation, where a
+    ///   missing article is the mistake being tested rather than a slip to
+    ///   forgive. Everywhere else "el perro" and "perro" are the same answer.
+    nonisolated static func normalise(_ text: String, droppingArticles: Bool = true) -> String {
         let transliterated = String(
             text.lowercased().flatMap { character -> String in
                 nonDecomposing[character] ?? String(character)
@@ -86,16 +89,25 @@ final class LocalGrader {
             "il", "lo", "gli", "uno",
             "de", "het", "een",
         ]
-        let meaningful = words.count > 1 ? Array(words.drop { articles.contains($0) }) : words
+        let meaningful =
+            droppingArticles && words.count > 1
+                ? Array(words.drop { articles.contains($0) })
+                : words
         return meaningful.joined(separator: " ")
     }
 
-    nonisolated private func exactMatch(expected: String, given: String) -> Bool {
-        let e = Self.normalise(expected)
-        let g = Self.normalise(given)
+    nonisolated private func exactMatch(
+        expected: String, given: String, kind: GradeKind
+    ) -> Bool {
+        let dictation = kind == .dictation
+        let e = Self.normalise(expected, droppingArticles: !dictation)
+        let g = Self.normalise(given, droppingArticles: !dictation)
         guard !e.isEmpty, !g.isEmpty else { return false }
         if e == g { return true }
-        // The expected side may list alternatives: "dog / hound"
+        // A word's expected side may list alternatives: "dog / hound". A
+        // sentence's may not -- its commas are punctuation, and splitting on
+        // them would accept half a sentence.
+        guard kind == .word else { return false }
         return e.components(separatedBy: CharacterSet(charactersIn: "/,;"))
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .contains(g)
@@ -127,12 +139,14 @@ final class LocalGrader {
         #endif
     }
 
-    private func onDeviceJudgement(
-        prompt: String, expected: String, given: String
-    ) async -> Judgement? {
-        #if canImport(FoundationModels)
-            guard Self.onDeviceAvailability == nil else { return nil }
-            let instructions = """
+    /// The rubric for what was actually asked. Mirrors `prompts.grade_system`
+    /// on the server, so a tier-2 verdict and a tier-3 verdict mean the same
+    /// thing -- otherwise the same answer is right or wrong depending on
+    /// whether the phone happens to run Apple Intelligence.
+    nonisolated static func instructions(for kind: GradeKind) -> String {
+        switch kind {
+        case .word:
+            """
             You grade a language learner's answer. Be fair, not pedantic.
             Accept synonyms, valid alternative word order, and regional variants.
             Mark "close" when the meaning is right but the form is wrong \
@@ -140,13 +154,55 @@ final class LocalGrader {
             Mark "wrong" when the meaning differs.
             Keep the reason to one short sentence, written to the learner.
             """
+        case .sentence:
+            """
+            You grade a learner's translation of a whole sentence. You are \
+            judging whether they said the same thing, not whether they matched \
+            a reference: different word order, synonyms, contractions and \
+            regional variants are all correct. Punctuation and capitalisation \
+            are not graded.
+            Mark "close" when the meaning came through but something is wrong \
+            (tense, agreement, gender, a misspelling that makes another word).
+            Mark "wrong" when the meaning differs, a negation is missing, or \
+            most of the sentence is absent.
+            Keep the reason to one short sentence, quoting the words at fault \
+            and giving the form they should have used.
+            """
+        case .dictation:
+            """
+            You grade a dictation: the learner heard a sentence and wrote down \
+            what they heard, in the same language. There is one right answer \
+            and the wording is the point -- never accept a paraphrase.
+            Mark "correct" when every word is there, in order, ignoring \
+            punctuation, capitalisation, and accents their keyboard makes hard \
+            to type.
+            Mark "close" when one or two words are misheard, misspelled or \
+            dropped and the sentence is otherwise intact.
+            Mark "wrong" when several words are wrong or missing.
+            Keep the reason to one short sentence naming the words that differ \
+            and what was actually said.
+            """
+        }
+    }
+
+    private func onDeviceJudgement(
+        prompt: String, expected: String, given: String, kind: GradeKind
+    ) async -> Judgement? {
+        #if canImport(FoundationModels)
+            guard Self.onDeviceAvailability == nil else { return nil }
+            let instructions = Self.instructions(for: kind)
             do {
                 let session = LanguageModelSession(instructions: instructions)
+                // A dictation has nothing on screen to quote, and inventing a
+                // "shown" line would tell the model the learner could read it.
+                let shown =
+                    kind == .dictation
+                        ? "They heard it spoken aloud, with nothing on screen.\n"
+                        : (prompt.isEmpty ? "" : "They were shown: \"\(prompt)\"\n")
                 let response = try await session.respond(
                     to: """
                     Target language: \(targetLang). Learner's language: \(sourceLang).
-                    They were shown: "\(prompt)"
-                    Expected: "\(expected)"
+                    \(shown)Expected: "\(expected)"
                     They wrote: "\(given)"
                     """,
                     generating: OnDeviceVerdict.self
@@ -164,18 +220,24 @@ final class LocalGrader {
 
     // MARK: - Entry point
 
-    func judge(prompt: String, expected: String, given: String) async -> Judgement {
+    func judge(
+        prompt: String, expected: String, given: String, kind: GradeKind = .word
+    ) async -> Judgement {
         let trimmed = given.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return Judgement(verdict: .wrong, reason: "Nothing entered.", source: .exact)
         }
 
-        if exactMatch(expected: expected, given: trimmed) {
-            return Judgement(verdict: .correct, reason: "Exactly right.", source: .exact)
+        if exactMatch(expected: expected, given: trimmed, kind: kind) {
+            return Judgement(
+                verdict: .correct,
+                reason: kind == .dictation ? "Word for word." : "Exactly right.",
+                source: .exact
+            )
         }
 
         if let judgement = await onDeviceJudgement(
-            prompt: prompt, expected: expected, given: trimmed
+            prompt: prompt, expected: expected, given: trimmed, kind: kind
         ) {
             return judgement
         }
@@ -183,7 +245,7 @@ final class LocalGrader {
         if let client {
             do {
                 let response = try await client.gradeAnswer(
-                    prompt: prompt, expected: expected, given: trimmed
+                    prompt: prompt, expected: expected, given: trimmed, kind: kind
                 )
                 return Judgement(
                     verdict: AnswerVerdict(rawValue: response.verdict) ?? .close,

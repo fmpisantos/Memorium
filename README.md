@@ -10,6 +10,9 @@ actual fluency.
   what lets you reach for a word mid-sentence.
 - **Words live in sentences.** Claude writes examples using only vocabulary you
   already know, so words transfer to speech instead of staying flashcard trivia.
+- **Whole phrases, four ways.** Hear a sentence and write it down without
+  seeing it, or read it in one language and write or say it in the other —
+  built from words already in your deck.
 
 Two pieces: a Python server that owns your deck and talks to Claude, and a
 SwiftUI iOS app.
@@ -52,7 +55,7 @@ anyone has signed in. It carries no deck content.
 are still good, which is the one thing that expires. See
 [Configuration](#configuration) for what to do when it doesn't say `ok`.
 
-Tests: `.venv/bin/python -m pytest` (88 tests).
+Tests: `.venv/bin/python -m pytest` (134 tests).
 
 ### On a Raspberry Pi
 
@@ -160,8 +163,8 @@ is loaded the same way, if you'd rather bill an API key than a subscription.
 
 The token expires. When it does, studying and scheduling carry on and the first
 two grading tiers are on-device anyway, so the damage is that new words stop
-getting example sentences and tier-3 grading is unavailable — reported, not
-fatal. `/health` returns `"claude_auth": "unavailable"` with a `claude_detail`
+getting example sentences, no new practice phrases are written (the stored ones
+still are served), and tier-3 grading is unavailable — reported, not fatal. `/health` returns `"claude_auth": "unavailable"` with a `claude_detail`
 string, and Settings shows it with the fix. Refresh with `claude setup-token`
 and restart the server.
 
@@ -173,7 +176,7 @@ Optional; the defaults are what `.env.example` ships with.
 |---|---|---|
 | `MEMORIUM_DATABASE_URL` | `sqlite:///./data/memorium.db` | Deck storage. The path is relative to `server/`, so start the server from there (`run.sh` and Docker handle it). |
 | `MEMORIUM_CLAUDE_MODEL` | `claude-haiku-4-5` | Default model for every Claude task. Each one is small — a word, a few sentences, a short story — so the cheapest model is also the fastest. |
-| `MEMORIUM_TRANSLATE_MODEL` etc. | *(the default above)* | Per-task override, one per task: `TRANSLATE`, `ENRICH`, `GRADE`, `MNEMONIC`, `STORY`. Set one to raise just that task to a bigger model without touching the rest. `/health` reports whatever is actually in force. |
+| `MEMORIUM_TRANSLATE_MODEL` etc. | *(the default above)* | Per-task override, one per task: `TRANSLATE`, `ENRICH`, `GRADE`, `MNEMONIC`, `STORY`, `PHRASE`. Set one to raise just that task to a bigger model without touching the rest. `/health` reports whatever is actually in force. |
 | `MEMORIUM_ENRICHMENT_WORKERS` | `2` | Concurrent enrichment jobs. Each forks a CLI subprocess, so raising it on a Pi mostly buys swap. |
 | `MEMORIUM_CLAUDE_TIMEOUT_SECONDS` | `180` | Per-call ceiling, so one wedged generation can't stall the queue. |
 | `MEMORIUM_PORT` / `MEMORIUM_HOST` | `8000` / `0.0.0.0` | Read by `run.sh` only; equivalent to its `-p` / `-H` flags. |
@@ -231,7 +234,7 @@ write fails with `errSecMissingEntitlement` — silently — and the symptom is
 being asked to sign in again on every single launch.
 
 Tests: `xcodebuild test -project Memorium.xcodeproj -scheme Memorium \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` (33 tests).
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` (68 tests).
 
 To point a build at a server on your desk without editing `project.yml`:
 
@@ -286,6 +289,59 @@ reschedule as normal, whichever round they turn up in.
 **Offline is expected.** Grades are written to an on-device outbox and flushed
 when the network returns. Each carries a client-generated ID, so a retry after a
 half-sent request can't double-schedule a card.
+
+---
+
+## Phrases
+
+The **Phrases** tab is where the words stop being flashcards. Claude writes
+whole sentences using only vocabulary already in your deck, and you answer them
+in one of four directions — the menu in the corner switches between them
+mid-session, over the same sentences:
+
+| Direction | What you get | What you produce |
+|---|---|---|
+| Write what you hear | Audio only, nothing on screen | The sentence, in the language you're learning |
+| Hear it, then translate | Audio only | What it meant, in your own language |
+| *yours* → *theirs* | The sentence in your language | It in theirs, written or spoken |
+| *theirs* → *yours* | The sentence in theirs | What it means |
+
+**Every content word comes from your deck.** A sentence with a word you have
+never met in it is not hard, it is impossible, and being unable to finish it
+teaches nothing. Function words — articles, pronouns, prepositions, *to be* —
+are always allowed, and the words the scheduler says you are closest to
+forgetting are named to Claude as the ones to work in.
+
+**Audio never plays when the audio is the answer.** Same rule as the cards: the
+sentence is spoken up front except in the one direction where you are asked to
+produce the target language from your own. *Repeat* works throughout.
+
+**Answers are graded on what was asked.** A translation is marked on meaning —
+different word order, a synonym, a contraction are all correct. A dictation is
+marked on the words themselves, because a flawless paraphrase means you did not
+actually hear it. The same three tiers as the cards do the marking, with the
+rubric switched.
+
+**A dictation also gets a word-by-word diff**, which is a string comparison
+rather than anything needing a connection: being told "close" after writing
+down a sentence you half-heard is not feedback, and *which* word you missed is
+the entire question. Translations deliberately don't get one — a sentence has
+many correct forms, and marking one against a single reference would flag good
+wording as a mistake.
+
+**Nothing here touches the schedule.** Getting a sentence wrong means the
+sentence was hard, not that a word needs reviewing sooner. Practise as much as
+you like.
+
+**Sentences are written a batch at a time and kept.** The next session starts
+on what is already there, and when Claude can't be reached the stored ones are
+served instead — a sentence you practised last week beats an error message, and
+this is the screen most likely to be wanted on a train. `MEMORIUM_PHRASE_MODEL`
+is the override worth reaching for first: a wrong ending in a sentence you are
+asked to write down is a wrong ending you then practise.
+
+The deck needs five words before this works at all, and it says so rather than
+inventing vocabulary to pad a sentence with.
 
 ---
 
@@ -346,16 +402,16 @@ server/
     scheduler.py       FSRS wrapper + card-unlock rules
     enrichment.py      background worker pool
     llm/               ContentGenerator protocol + Agent SDK adapter
-    routers/           health, auth, words, study, enrich
-  tests/               81 tests
+    routers/           health, auth, words, study, practice, enrich
+  tests/               134 tests
 ios/
   Memorium/
     Core/              API client, models, settings, Google auth, outbox
     Services/          TTS, speech recognition, grading, OCR
-    Features/          Onboarding, Study, Deck, Settings
+    Features/          Onboarding, Study, Phrases, Deck, Settings
     Assets.xcassets/   app icon, generated -- see Tools/
   Tools/               GenerateAppIcon.swift, draws the icon at every size
-  MemoriumTests/       19 tests
+  MemoriumTests/       68 tests
 ```
 
 The icon is drawn in code rather than kept as flat artwork, so redesigning it

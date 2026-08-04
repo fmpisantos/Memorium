@@ -17,7 +17,7 @@ def options_for(generator: AgentSDKGenerator, task: str):
 
 def test_tasks_fall_back_to_the_default_model():
     generator = AgentSDKGenerator(model="default-model")
-    for task in ("translate", "enrich", "grade", "mnemonic", "story"):
+    for task in ("translate", "enrich", "grade", "mnemonic", "story", "phrase"):
         assert options_for(generator, task).model == "default-model"
 
 
@@ -44,6 +44,7 @@ def test_settings_resolve_blanks_to_the_default():
         "grade": "base",
         "mnemonic": "base",
         "story": "base",
+        "phrase": "base",
     }
 
 
