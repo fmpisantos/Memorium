@@ -21,8 +21,16 @@ final class StudyViewModel {
     private(set) var pendingUpload = 0
     private(set) var isOffline = false
 
+    /// True while this session is an extra round rather than the day's own
+    /// queue. Nothing in it moves the schedule unless a card was genuinely due.
+    private(set) var isExtra = false
+
     /// Cards skipped this session, re-appended once the main run is done.
     private var deferred: [StudyCard] = []
+
+    /// How many other cards have to sit between two cards of the same word.
+    /// Mirrors `SIBLING_GAP` on the server, which spaces the queue it serves.
+    nonisolated static let siblingGap = 4
 
     // Typed-answer state (cloze cards).
     var typedAnswer = ""
@@ -87,7 +95,10 @@ final class StudyViewModel {
 
     // MARK: - Loading
 
-    func load() async {
+    /// Fetch a session. `extra` asks for another round on top of the day's
+    /// work, which the server will always provide -- the daily limit paces how
+    /// many *new* words arrive, it is not a cap on studying.
+    func load(extra: Bool = false) async {
         phase = .loading
         guard settings.isConfigured else {
             phase = .failed("Set your server address and token in Settings.")
@@ -104,15 +115,22 @@ final class StudyViewModel {
         }
 
         do {
-            let queue = try await client.queue()
+            let queue = try await client.queue(extra: extra)
             isOffline = false
-            outbox.cacheQueue(queue)
+            // Only the day's queue is cached. It is what an offline session
+            // should resume into: caching an extra round over it would hand
+            // someone with no signal practice instead of the work that is due.
+            if !extra { outbox.cacheQueue(queue) }
             start(with: queue)
         } catch let error as APIError where error.isTransient {
             // No signal: fall back to the last cached queue so the session can
             // still happen. Grades go to the outbox.
             isOffline = true
-            if let cached = outbox.cachedQueue() {
+            if extra {
+                // An extra round is drawn from the whole deck, and the whole
+                // deck is on the server. There is nothing local to stand in.
+                phase = .empty("Extra rounds need a connection. What's due is still here.")
+            } else if let cached = outbox.cachedQueue() {
                 start(with: cached)
             } else {
                 phase = .empty("You're offline and there's nothing cached yet.")
@@ -124,13 +142,18 @@ final class StudyViewModel {
 
     private func start(with queue: StudyQueue) {
         cards = queue.cards
+        isExtra = queue.extra
         deferred = []
         index = 0
         reviewedCount = 0
         typedAnswer = ""
         judgement = nil
         phase = cards.isEmpty
-            ? .empty("Nothing due. Add some words, or come back later.")
+            ? .empty(
+                queue.extra
+                    ? "Nothing left to practise. Add some words."
+                    : "Nothing due. Add some words, or come back later."
+            )
             : .question
         speech.refreshVoiceStatus(for: settings.targetLang)
         autoplayIfNeeded()
@@ -184,14 +207,49 @@ final class StudyViewModel {
         index += 1
 
         if index >= cards.count, !deferred.isEmpty {
-            // Second pass over the skipped cards.
-            cards = deferred
+            // Second pass over the skipped cards. Skipping rebuilds the order
+            // the server carefully spaced, so space it again here -- and
+            // against the tail of the run just finished, since the second pass
+            // starts right after it.
+            cards = Self.spacingSiblings(deferred, after: cards)
             deferred = []
             index = 0
         }
 
         phase = index < cards.count ? .question : .finished
         autoplayIfNeeded()
+    }
+
+    /// Reorder so no two cards of the same word land within `siblingGap` of
+    /// each other, counting the tail of `seen` as already shown.
+    ///
+    /// A word's recognition and production cards are mirror images: answering
+    /// "hei -> hi" and then meeting "hi -> hei" reads back the answer you were
+    /// just shown, so the second card tests nothing.
+    ///
+    /// Greedy and order-preserving -- at each slot it takes the earliest card
+    /// whose word has not come up recently. Best-effort by design: when
+    /// everything left is a sibling it still shows them, because withholding a
+    /// card the learner asked to see again is worse than showing it early.
+    nonisolated static func spacingSiblings(
+        _ cards: [StudyCard],
+        after seen: [StudyCard] = [],
+        gap: Int = siblingGap
+    ) -> [StudyCard] {
+        guard gap >= 1 else { return cards }
+        var remaining = cards
+        var window = seen.suffix(gap).map(\.wordId)
+        var out: [StudyCard] = []
+        out.reserveCapacity(cards.count)
+
+        while !remaining.isEmpty {
+            let recent = Set(window.suffix(gap))
+            let pick = remaining.firstIndex { !recent.contains($0.wordId) } ?? 0
+            let card = remaining.remove(at: pick)
+            out.append(card)
+            window.append(card.wordId)
+        }
+        return out
     }
 
     // MARK: - Typed answers

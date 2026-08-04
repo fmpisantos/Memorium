@@ -127,6 +127,37 @@ Text: "{text}"
 Give the translation."""
 
 
+BATCH_TRANSLATE_SYSTEM = (
+    TRANSLATE_SYSTEM
+    + """
+
+You are given a numbered list rather than a single word. Translate every one of \
+them, following all of the rules above for each.
+
+- `translations` holds one entry per input, in the SAME ORDER, with the SAME \
+COUNT. This matters more than any individual translation: the caller pairs them \
+back up by position, so a missing entry silently mislabels every word after it.
+- Translate each word on its own. They come from one learner's deck and are not \
+a phrase, a sentence, or context for each other.
+- If you genuinely cannot translate one, return an empty string in its slot. \
+Never drop it, and never substitute a guess for a word you did not recognise."""
+)
+
+
+def batch_translate_prompt(
+    texts: list[str], into: str, source_lang: str, target_lang: str
+) -> str:
+    from_lang, to_lang = (
+        (target_lang, source_lang) if into == "source" else (source_lang, target_lang)
+    )
+    listing = "\n".join(f"{index}. {text}" for index, text in enumerate(texts, start=1))
+    return f"""Translate from {from_lang} into {to_lang}.
+
+{listing}
+
+Give {len(texts)} translations, in order."""
+
+
 STORY_SYSTEM = """You write very short stories to review vocabulary in context.
 
 - Use EVERY word from the supplied list, in natural form.

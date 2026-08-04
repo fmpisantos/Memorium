@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.deps import get_profile, require_user
 from app.enrichment import get_service
-from app.models import EnrichmentStatus, Profile, Word
+from app.models import EnrichmentStatus, Profile, Word, deck_key, normalise_lemma
 from app.scheduler import new_cards_for_word
 from app.schemas import (
     ProfileOut,
@@ -18,10 +18,6 @@ from app.schemas import (
 )
 
 router = APIRouter(tags=["deck"], dependencies=[Depends(require_user)])
-
-
-def _normalise(lemma: str) -> str:
-    return " ".join(lemma.split()).strip()
 
 
 # --------------------------------------------------------------------------- #
@@ -65,8 +61,8 @@ def list_words(
 
 @router.post("/words", response_model=WordOut, status_code=status.HTTP_201_CREATED)
 def create_word(payload: WordCreate, db: Session = Depends(get_db)):
-    lemma = _normalise(payload.lemma)
-    if db.scalar(select(Word).where(Word.lemma == lemma)):
+    lemma = normalise_lemma(payload.lemma)
+    if db.scalar(select(Word).where(Word.lemma_key == deck_key(lemma))):
         raise HTTPException(status.HTTP_409_CONFLICT, f"'{lemma}' is already in the deck")
 
     word = Word(
@@ -92,18 +88,26 @@ def create_words_batch(payload: WordBatchCreate, db: Session = Depends(get_db)):
 
     OCR import posts here: one mistyped duplicate in a 200-word screenshot
     import should not throw away the other 199.
+
+    A batch that repeats a word itself collapses to one entry, silently: the
+    learner is told about words the deck already had, which is news, not about
+    a word they listed twice, which is not.
     """
-    incoming = {_normalise(w.lemma): w for w in payload.words}
+    incoming: dict[str, WordCreate] = {}
+    for spec in payload.words:
+        # First spelling wins, so the batch reads back the way it was sent.
+        incoming.setdefault(deck_key(spec.lemma), spec)
+
     existing = set(
-        db.scalars(select(Word.lemma).where(Word.lemma.in_(list(incoming.keys())))).all()
+        db.scalars(select(Word.lemma_key).where(Word.lemma_key.in_(list(incoming)))).all()
     )
 
     created: list[Word] = []
-    for lemma, spec in incoming.items():
-        if lemma in existing:
+    for key, spec in incoming.items():
+        if key in existing:
             continue
         word = Word(
-            lemma=lemma,
+            lemma=normalise_lemma(spec.lemma),
             native_gloss=spec.native_gloss.strip(),
             notes=spec.notes,
             source=spec.source,
@@ -120,7 +124,9 @@ def create_words_batch(payload: WordBatchCreate, db: Session = Depends(get_db)):
         db.refresh(word)
     get_service().enqueue([w.id for w in created])
 
-    duplicates = sorted(existing | (set(incoming) - {w.lemma for w in created} - set(existing)))
+    # Reported as they were sent, not as they are keyed: "Perro" is what the
+    # learner typed and what they need to find in the list.
+    duplicates = sorted(normalise_lemma(incoming[key].lemma) for key in existing)
     return WordBatchResult(created=created, duplicates=duplicates)
 
 
@@ -140,8 +146,12 @@ def update_word(word_id: str, payload: WordUpdate, db: Session = Depends(get_db)
 
     data = payload.model_dump(exclude_unset=True)
     if "lemma" in data and data["lemma"]:
-        data["lemma"] = _normalise(data["lemma"])
-        clash = db.scalar(select(Word).where(Word.lemma == data["lemma"], Word.id != word_id))
+        data["lemma"] = normalise_lemma(data["lemma"])
+        # Not `!= word.lemma`: a word may be recased into itself, which is a
+        # rename the deck has no reason to refuse.
+        clash = db.scalar(
+            select(Word).where(Word.lemma_key == deck_key(data["lemma"]), Word.id != word_id)
+        )
         if clash:
             raise HTTPException(status.HTTP_409_CONFLICT, f"'{data['lemma']}' is already in the deck")
         # The lemma changed, so any generated sentences describe the old word.

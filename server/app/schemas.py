@@ -133,6 +133,9 @@ class StudyCard(BaseModel):
 
     is_new: bool
     is_leech: bool
+    # Not due yet -- served because the learner asked for extra practice.
+    # Answering it is logged but does not move the schedule.
+    is_practice: bool = False
     due: datetime
 
 
@@ -142,7 +145,10 @@ class StudyQueue(BaseModel):
     cards: list[StudyCard]
     due_count: int
     new_count: int
+    practice_count: int = 0
     new_remaining_today: int
+    # True when this queue came from an extra round rather than the day's work.
+    extra: bool = False
 
 
 class GradeIn(BaseModel):
@@ -164,6 +170,8 @@ class GradeResult(BaseModel):
     card_id: str
     accepted: bool
     duplicate: bool = False
+    # Recorded, but the schedule was deliberately left where it was.
+    practice: bool = False
     next_due: datetime | None = None
     interval_days: float | None = None
     is_leech: bool = False

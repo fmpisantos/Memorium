@@ -61,6 +61,32 @@ def to_fsrs(card: Card) -> FSRSCard:
     )
 
 
+def elapsed_days(card: Card, at: datetime) -> float | None:
+    """Days since this card's previous review, or None if it has never had one."""
+    if card.last_review is None:
+        return None
+    return (at - card.last_review).total_seconds() / 86400.0
+
+
+def is_practice(card: Card, at: datetime) -> bool:
+    """Is this review extra practice rather than a scheduled one?
+
+    Extra sessions hand out cards that are not due yet, and answering one early
+    is not the evidence the schedule was waiting for: the interval it bet on
+    has not run out, so a correct answer says only that the bet is still live.
+    FSRS would fold it in anyway, which means a learner drilling the same word
+    three times in an evening quietly drags their own schedule around -- the
+    reward for practising more would be being tested more often.
+
+    So these reviews are recorded and otherwise left alone. Practise as much as
+    you like; the schedule is decided by the reviews it actually asked for.
+
+    A card that has never been reviewed is never practice, whenever it turns
+    up: its first review is the one that starts the schedule.
+    """
+    return card.reps > 0 and card.due > at
+
+
 def apply_review(
     card: Card,
     rating: Rating | int,
@@ -75,9 +101,7 @@ def apply_review(
     rating = Rating(int(rating))
     reviewed_at = reviewed_at or utcnow()
 
-    elapsed = None
-    if card.last_review is not None:
-        elapsed = (reviewed_at - card.last_review).total_seconds() / 86400.0
+    elapsed = elapsed_days(card, reviewed_at)
 
     updated, _log = build_scheduler(profile).review_card(
         to_fsrs(card), rating, review_datetime=reviewed_at
@@ -164,6 +188,8 @@ __all__ = [
     "apply_review",
     "audio_autoplays",
     "build_scheduler",
+    "elapsed_days",
+    "is_practice",
     "kinds_to_unlock",
     "local_day_start",
     "new_cards_for_word",

@@ -60,7 +60,9 @@ class EnrichmentService:
     def __init__(self, generator: ContentGenerator | None = None, workers: int | None = None):
         settings = get_settings()
         self.generator: ContentGenerator = generator or AgentSDKGenerator(
-            model=settings.claude_model, timeout_seconds=settings.claude_timeout_seconds
+            model=settings.claude_model,
+            timeout_seconds=settings.claude_timeout_seconds,
+            task_models=settings.task_models,
         )
         self.worker_count = workers if workers is not None else settings.enrichment_workers
         self._queue: asyncio.Queue[str] = asyncio.Queue()

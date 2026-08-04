@@ -7,6 +7,7 @@ import pytest
 from app.enrichment import EnrichmentService, set_service
 from app.llm.base import (
     AnswerJudgement,
+    BatchTranslationOut,
     ContentGenerationError,
     GeneratedSentence,
     MnemonicOut,
@@ -20,10 +21,19 @@ from app.models import Enrichment, EnrichmentStatus, Profile, Word
 class FakeGenerator:
     """Stands in for Claude. `fail_with` makes it misbehave on demand."""
 
-    def __init__(self, fail_with: Exception | None = None, sentences=None, translation=None):
+    def __init__(
+        self,
+        fail_with: Exception | None = None,
+        sentences=None,
+        translation=None,
+        declines: set[str] | None = None,
+    ):
         self.fail_with = fail_with
         self.calls: list[dict] = []
         self.translation = translation
+        # Words this fake refuses, to stand for the ones Claude comes back
+        # empty on.
+        self.declines = declines or set()
         self._sentences = (
             sentences
             if sentences is not None
@@ -72,6 +82,19 @@ class FakeGenerator:
         if self.fail_with:
             raise self.fail_with
         return TranslationOut(translation=self.translation or f"{text}-in-{into}")
+
+    async def translate_batch(self, texts, into, source_lang, target_lang):
+        self.calls.append({"translate_batch": list(texts), "into": into})
+        if self.fail_with:
+            raise self.fail_with
+        # An empty input stands for a word the model declined, which the
+        # endpoint turns into a null rather than dropping.
+        return BatchTranslationOut(
+            translations=[
+                "" if text in self.declines else (self.translation or f"{text}-in-{into}")
+                for text in texts
+            ]
+        )
 
 
 @pytest.fixture
@@ -211,7 +234,8 @@ def test_sentences_whose_cloze_word_is_absent_are_dropped(client, db):
 
     generator = AgentSDKGenerator(model="x")
 
-    async def fake_generate(model_cls, system, user):
+    async def fake_generate(model_cls, system, user, task):
+        assert task == "enrich"
         return WordEnrichment(
             lemma="perro",
             pos="noun",
@@ -236,7 +260,8 @@ def test_a_quoted_translation_is_unwrapped(db):
 
     generator = AgentSDKGenerator(model="x")
 
-    async def fake_generate(model_cls, system, user):
+    async def fake_generate(model_cls, system, user, task):
+        assert task == "translate"
         return TranslationOut(translation=' "el perro" ')
 
     generator._generate = fake_generate
@@ -286,6 +311,86 @@ def test_translate_rejects_a_direction_it_does_not_know(client, db, fake):
     seed_profile(db)
     assert client.post("/translate", json={"text": "perro", "into": "klingon"}).status_code == 422
     assert client.post("/translate", json={"text": "", "into": "source"}).status_code == 422
+
+
+def test_translate_batch_answers_every_word_in_order(client, db, fake):
+    """The caller pairs translations back to words by position, not by name."""
+    seed_profile(db)
+    r = client.post("/translate/batch", json={"texts": ["bor", "stor", "by"], "into": "source"})
+    assert r.status_code == 200
+    assert r.json() == {
+        "translations": ["bor-in-source", "stor-in-source", "by-in-source"],
+        "into": "source",
+    }
+    assert {"translate_batch": ["bor", "stor", "by"], "into": "source"} in fake.calls
+
+
+def test_translate_batch_is_one_call_for_the_whole_import(client, db, fake):
+    """The point of the endpoint: a hundred blanks must not be a hundred trips."""
+    seed_profile(db)
+    texts = [f"ord{index}" for index in range(100)]
+    r = client.post("/translate/batch", json={"texts": texts, "into": "source"})
+    assert r.status_code == 200
+    assert len(r.json()["translations"]) == 100
+    assert len([call for call in fake.calls if "translate_batch" in call]) == 1
+
+
+def test_translate_batch_nulls_one_word_rather_than_losing_the_rest(client, db):
+    """Ninety-nine translated words are still worth having."""
+    set_service(EnrichmentService(generator=FakeGenerator(declines={"stor"}), workers=0))
+    try:
+        seed_profile(db)
+        r = client.post("/translate/batch", json={"texts": ["bor", "stor", "by"], "into": "source"})
+        assert r.status_code == 200
+        # Still three entries, so "stor" is identifiable as the one that failed.
+        assert r.json()["translations"] == ["bor-in-source", None, "by-in-source"]
+    finally:
+        set_service(None)
+
+
+def test_translate_batch_reports_unavailable_when_claude_is_down(client, db):
+    set_service(
+        EnrichmentService(
+            generator=FakeGenerator(fail_with=ContentGenerationError("token expired")), workers=0
+        )
+    )
+    try:
+        seed_profile(db)
+        r = client.post("/translate/batch", json={"texts": ["bor"], "into": "source"})
+        assert r.status_code == 503
+    finally:
+        set_service(None)
+
+
+def test_translate_batch_rejects_an_empty_or_oversized_list(client, db, fake):
+    seed_profile(db)
+    assert client.post("/translate/batch", json={"texts": [], "into": "source"}).status_code == 422
+    assert (
+        client.post(
+            "/translate/batch", json={"texts": ["a"] * 501, "into": "source"}
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/translate/batch", json={"texts": ["bor"], "into": "klingon"}
+        ).status_code
+        == 422
+    )
+
+
+def test_translate_batch_refuses_a_mismatched_count():
+    """A short list from Claude would shift every translation onto the wrong word."""
+    from app.llm.agent_sdk import AgentSDKGenerator
+
+    generator = AgentSDKGenerator(model="x")
+
+    async def fake_generate(model_cls, system, user, task):
+        return BatchTranslationOut(translations=["one", "two"])
+
+    generator._generate = fake_generate
+    with pytest.raises(ContentGenerationError):
+        asyncio.run(generator.translate_batch(["a", "b", "c"], "source", "en-US", "nb-NO"))
 
 
 def test_translate_reports_unavailable_rather_than_saving_a_blank(client, db):

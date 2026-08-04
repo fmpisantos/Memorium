@@ -71,6 +71,19 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    TranslationDownloadRow(
+                        sourceLang: settings.sourceLang,
+                        targetLang: settings.targetLang
+                    )
+                } header: {
+                    Text("On-device translation")
+                } footer: {
+                    Text(
+                        "Downloaded pairs are translated on the phone — instantly, offline, and without a request. Everything else falls back to the server."
+                    )
+                }
+
+                Section {
                     LabeledContent("Address", value: settings.serverURL)
                         .textSelection(.enabled)
                 } header: {

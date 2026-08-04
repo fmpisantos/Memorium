@@ -51,6 +51,24 @@ class TranslateResponse(BaseModel):
     into: str
 
 
+class TranslateBatchRequest(BaseModel):
+    # Bounded like WordBatchCreate, and for the same reason: a screenshot import
+    # is the caller, and it is capped at the same size.
+    texts: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=400)]],
+        Field(min_length=1, max_length=500),
+    ]
+    into: Literal["source", "target"]
+
+
+class TranslateBatchResponse(BaseModel):
+    # Aligned with the request by position. A word Claude could not translate
+    # comes back as null rather than being dropped, so the caller can still tell
+    # which word it was.
+    translations: list[str | None]
+    into: str
+
+
 class StoryResponse(BaseModel):
     title: str
     target: str
@@ -147,6 +165,38 @@ async def translate(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Claude returned an empty translation"
         )
     return TranslateResponse(translation=translation, into=payload.into)
+
+
+@router.post("/translate/batch", response_model=TranslateBatchResponse)
+async def translate_batch(
+    payload: TranslateBatchRequest,
+    profile: Profile = Depends(get_profile),
+):
+    """Fill in the missing side of many cards at once.
+
+    Importing a word list is the case this exists for. Duolingo shows a
+    translation under only about half the words it lists, so a hundred-word
+    import arrives with dozens of blanks -- one request each would be a hundred
+    round trips before the learner sees their deck.
+    """
+    texts = [text.strip() for text in payload.texts]
+    try:
+        result = await get_service().generator.translate_batch(
+            texts=texts,
+            into=payload.into,
+            source_lang=profile.source_lang,
+            target_lang=profile.target_lang,
+        )
+    except ContentGenerationError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+    # An empty slot is a word Claude declined, not a failure of the batch: the
+    # other ninety-nine words are still worth having, and the caller shows the
+    # blank one for the learner to fill in.
+    return TranslateBatchResponse(
+        translations=[text.strip() or None for text in result.translations],
+        into=payload.into,
+    )
 
 
 @router.post("/words/{word_id}/mnemonic")

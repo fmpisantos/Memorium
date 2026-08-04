@@ -11,7 +11,7 @@ from app.llm.base import WordEnrichment, json_schema
 
 
 def build_options():
-    generator = AgentSDKGenerator(model="claude-opus-5")
+    generator = AgentSDKGenerator(model="test-model")
     return generator._options("system", json_schema(WordEnrichment))
 
 

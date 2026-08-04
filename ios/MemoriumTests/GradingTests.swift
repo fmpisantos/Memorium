@@ -63,7 +63,7 @@ struct CardRuleTests {
             lemma: "perro", nativeGloss: "dog", article: "el", pos: "noun",
             prompt: "p", answer: "a", speechText: "perro", audioAutoplay: autoplay,
             sentenceTarget: nil, sentenceNative: nil, clozeAnswer: nil,
-            isNew: true, isLeech: false, due: .now
+            isNew: true, isLeech: false, isPractice: false, due: .now
         )
     }
 
@@ -82,6 +82,61 @@ struct CardRuleTests {
         let production = card(.production, autoplay: false)
         #expect(!production.audioAutoplay)
         #expect(!production.speechText.isEmpty)
+    }
+}
+
+/// The server spaces the queue it serves, but skipping rebuilds that order on
+/// the device, so the same rule has to hold here.
+@Suite("Sibling spacing")
+struct SiblingSpacingTests {
+    private func card(_ word: String, _ kind: CardKind) -> StudyCard {
+        StudyCard(
+            cardId: "\(word)-\(kind.rawValue)", wordId: word, kind: kind,
+            lemma: word, nativeGloss: word, article: nil, pos: nil,
+            prompt: "p", answer: "a", speechText: word, audioAutoplay: false,
+            sentenceTarget: nil, sentenceNative: nil, clozeAnswer: nil,
+            isNew: true, isLeech: false, isPractice: false, due: .now
+        )
+    }
+
+    private func pair(_ word: String) -> [StudyCard] {
+        [card(word, .recognition), card(word, .production)]
+    }
+
+    @Test("A word's two cards never end up back to back")
+    func mirrorsAreSeparated() {
+        let deferred = pair("hei") + pair("takk") + pair("ja")
+        let spaced = StudyViewModel.spacingSiblings(deferred)
+
+        #expect(spaced.count == deferred.count)
+        for (a, b) in zip(spaced, spaced.dropFirst()) {
+            #expect(a.wordId != b.wordId)
+        }
+    }
+
+    @Test("Cards already shown still count as recent")
+    func spacingLooksBackAtTheRunJustFinished() {
+        // "hei" was the last card of the main run, so its mirror must not open
+        // the second pass.
+        let spaced = StudyViewModel.spacingSiblings(
+            [card("hei", .production), card("takk", .production)],
+            after: [card("ja", .recognition), card("hei", .recognition)]
+        )
+        #expect(spaced.first?.wordId == "takk")
+    }
+
+    @Test("A pass that cannot be spaced still shows every card")
+    func degradesInsteadOfDropping() {
+        // One word skipped twice: there is nothing to put between its cards,
+        // and withholding a card the learner asked to see again is worse.
+        let spaced = StudyViewModel.spacingSiblings(pair("hei"))
+        #expect(spaced.map(\.cardId) == ["hei-recognition", "hei-production"])
+    }
+
+    @Test("Order is otherwise preserved")
+    func ordersStay() {
+        let deferred = [card("a", .recognition), card("b", .recognition), card("c", .recognition)]
+        #expect(StudyViewModel.spacingSiblings(deferred).map(\.wordId) == ["a", "b", "c"])
     }
 }
 

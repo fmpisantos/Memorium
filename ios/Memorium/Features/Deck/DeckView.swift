@@ -56,10 +56,18 @@ struct DeckView: View {
                 }
             }
             .sheet(isPresented: $showingAdd) {
-                AddWordView { Task { await load() } }
+                AddWordView { _ in Task { await load() } }
             }
             .sheet(item: $editing) { word in
-                AddWordView(editing: word) { Task { await load() } }
+                AddWordView(editing: word) { saved in
+                    // The row changes as the sheet closes, rather than a
+                    // round trip later: the server hands back the word it
+                    // saved, so there is nothing left to ask it for.
+                    if let saved { replace(saved) }
+                    // Still reloaded, because an edit can move a word out of
+                    // the current search or change how it sorts.
+                    Task { await load() }
+                }
             }
             .sheet(isPresented: $showingImport) {
                 ImportView { Task { await load() } }
@@ -123,6 +131,14 @@ struct DeckView: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// Writes an edited word over the copy on screen. A word missing from the
+    /// list is not an error: the search may have changed while the sheet was
+    /// open, and the reload that follows knows where it belongs.
+    private func replace(_ word: Word) {
+        guard let index = words.firstIndex(where: { $0.id == word.id }) else { return }
+        words[index] = word
     }
 
     /// Removes the row straight away, then confirms it with the server. A

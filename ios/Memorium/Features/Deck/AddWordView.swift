@@ -29,6 +29,33 @@ struct WordDraft: Identifiable, Equatable {
         if case let .failed(reason) = status { return reason }
         return nil
     }
+
+    /// What the deck files this word under. Matches the server's rule -- same
+    /// word, same key, whatever case it was typed in -- so the list on screen
+    /// agrees with what will come back from Done.
+    ///
+    /// Empty while a draft is still waiting for its word to be translated, and
+    /// so no basis for calling two such drafts the same.
+    var key: String {
+        lemma.split(whereSeparator: \.isWhitespace).joined(separator: " ").lowercased()
+    }
+}
+
+extension [WordDraft] {
+    /// Puts `draft` at the top of the list, in place of any copy of the same
+    /// word already staged.
+    ///
+    /// The deck is a set, so the list feeding it is one too: adding a word
+    /// twice would show two rows and then quietly send one, which reads as a
+    /// word going missing. Returns the row that made way, whose translation is
+    /// no longer wanted.
+    @discardableResult
+    mutating func stage(_ draft: WordDraft) -> WordDraft? {
+        let displaced = draft.key.isEmpty ? nil : first { $0.key == draft.key }
+        if let displaced { removeAll { $0.id == displaced.id } }
+        insert(draft, at: 0)
+        return displaced
+    }
 }
 
 /// Manual entry, built for the copy-from-Duolingo loop.
@@ -53,7 +80,11 @@ struct AddWordView: View {
 
     /// The word being changed, or nil when adding new ones.
     let editing: Word?
-    let onSaved: () -> Void
+    /// Called once the server has the change. An edit hands back the word as
+    /// it was saved, so the deck can show it without waiting for a fetch;
+    /// adding hands back nil, because a batch tells the caller nothing useful
+    /// about where its words belong in the list.
+    let onSaved: (Word?) -> Void
 
     @State private var lemma: String
     @State private var gloss: String
@@ -79,7 +110,7 @@ struct AddWordView: View {
         var other: Field { self == .lemma ? .gloss : .lemma }
     }
 
-    init(editing: Word? = nil, onSaved: @escaping () -> Void) {
+    init(editing: Word? = nil, onSaved: @escaping (Word?) -> Void) {
         self.editing = editing
         self.onSaved = onSaved
         // The lemma is edited on its own; `display` would drop the article back
@@ -329,6 +360,17 @@ struct AddWordView: View {
 
     // MARK: - Translation
 
+    /// On-device first, the server second. Built per call, like `LocalGrader`
+    /// in the study loop -- it holds no state worth keeping between words, and
+    /// this way it always reads the current language pair.
+    private func makeTranslator() -> LocalTranslator {
+        LocalTranslator(
+            client: settings.isConfigured ? settings.makeClient() : nil,
+            sourceLang: settings.sourceLang,
+            targetLang: settings.targetLang
+        )
+    }
+
     private func startTranslation(from field: Field) {
         translateTask?.cancel()
         translateTask = Task { await fillOtherSide(from: field) }
@@ -338,7 +380,9 @@ struct AddWordView: View {
     /// the other field.
     private func fillOtherSide(from field: Field) async {
         let text = trimmed(field)
-        guard !text.isEmpty, settings.isConfigured else { return }
+        // No `isConfigured` check: a downloaded language pair translates on
+        // device, so this now works with no server at all.
+        guard !text.isEmpty else { return }
 
         translating = field.other
         defer {
@@ -348,7 +392,7 @@ struct AddWordView: View {
         }
 
         do {
-            let translation = try await settings.makeClient()
+            let translation = try await makeTranslator()
                 .translate(text, into: field == .lemma ? .source : .target)
             guard !Task.isCancelled else { return }
             // The learner kept typing while this was in flight, so it now
@@ -369,15 +413,11 @@ struct AddWordView: View {
     /// the next word and must not be interrupted, but Done will not go through
     /// until they come back to it.
     private func translateDraft(id: UUID, into target: Field) async {
-        guard settings.isConfigured else {
-            markFailed(id: id, reason: "No server configured yet.")
-            return
-        }
         guard let draft = drafts.first(where: { $0.id == id }) else { return }
         let source = target == .gloss ? draft.lemma : draft.gloss
 
         do {
-            let translation = try await settings.makeClient()
+            let translation = try await makeTranslator()
                 .translate(source, into: target == .gloss ? .source : .target)
             guard !Task.isCancelled else { return }
             guard let index = drafts.firstIndex(where: { $0.id == id }) else { return }
@@ -389,6 +429,9 @@ struct AddWordView: View {
             }
             if target == .gloss { drafts[index].gloss = cleaned } else { drafts[index].lemma = cleaned }
             drafts[index].status = .ready
+            // The word only just got its spelling, so this is the first moment
+            // it can be seen to be one already in the list.
+            dropCopies(of: id)
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled else { return }
@@ -434,7 +477,11 @@ struct AddWordView: View {
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
             status: missing == nil ? .ready : .translating
         )
-        drafts.insert(draft, at: 0)
+        // Typing a word again is a correction, not a second word: the new take
+        // takes the old row's place at the top of the list.
+        if let displaced = drafts.stage(draft) {
+            draftTasks.removeValue(forKey: displaced.id)?.cancel()
+        }
 
         lemma = ""
         gloss = ""
@@ -453,11 +500,24 @@ struct AddWordView: View {
         drafts.removeAll { $0.id == draft.id }
     }
 
+    /// Drops any other row that has become a copy of the one with `id`, keeping
+    /// the list a set. A word reaches a spelling already staged either by being
+    /// corrected by hand or by a translation landing on it.
+    private func dropCopies(of id: UUID) {
+        guard let draft = drafts.first(where: { $0.id == id }), !draft.key.isEmpty else { return }
+        let copies = drafts.filter { $0.id != id && $0.key == draft.key }
+        for copy in copies { draftTasks.removeValue(forKey: copy.id)?.cancel() }
+        drafts.removeAll { staged in copies.contains { $0.id == staged.id } }
+    }
+
     private func apply(_ updated: WordDraft) {
         // A correction wins over whatever the translation was about to say.
         draftTasks.removeValue(forKey: updated.id)?.cancel()
         guard let index = drafts.firstIndex(where: { $0.id == updated.id }) else { return }
         drafts[index] = updated
+        // The correction may have turned this row into a copy of another one --
+        // typically the word that was mistyped in the first place.
+        dropCopies(of: updated.id)
     }
 
     private func cancel() {
@@ -498,7 +558,7 @@ struct AddWordView: View {
         do {
             let result = try await settings.makeClient().addWords(payload)
             drafts.removeAll()
-            onSaved()
+            onSaved(nil)
 
             guard result.duplicates.isEmpty else {
                 // Staying open is the only place this can be read; dismissing
@@ -528,7 +588,7 @@ struct AddWordView: View {
         }
 
         do {
-            try await settings.makeClient().updateWord(
+            let saved = try await settings.makeClient().updateWord(
                 id: editing.id,
                 WordUpdate(
                     lemma: trimmed(.lemma),
@@ -538,7 +598,7 @@ struct AddWordView: View {
             )
             translateTask?.cancel()
             error = nil
-            onSaved()
+            onSaved(saved)
             dismiss()
         } catch let APIError.server(status, detail) where status == 409 {
             error = detail.isEmpty ? "That word is already in your deck." : detail

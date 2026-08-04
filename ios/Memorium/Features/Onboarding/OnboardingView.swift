@@ -30,6 +30,16 @@ struct OnboardingView: View {
                     )
                 }
 
+                Section {
+                    TranslationDownloadRow(sourceLang: sourceLang, targetLang: targetLang)
+                } header: {
+                    Text("On-device translation")
+                } footer: {
+                    Text(
+                        "Optional, and it can wait until later. Downloading the pair now means new words get translated on the phone rather than over the network."
+                    )
+                }
+
                 accountSection
             }
             .navigationTitle("Set up Memorium")

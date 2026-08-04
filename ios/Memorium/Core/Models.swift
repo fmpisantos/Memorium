@@ -60,6 +60,9 @@ struct StudyCard: Codable, Sendable, Identifiable, Equatable {
 
     let isNew: Bool
     let isLeech: Bool
+    /// Served ahead of its due date because extra practice was asked for.
+    /// Answering it is recorded but deliberately does not move the schedule.
+    let isPractice: Bool
     let due: Date
 
     var id: String { cardId }
@@ -71,7 +74,10 @@ struct StudyQueue: Codable, Sendable {
     let cards: [StudyCard]
     let dueCount: Int
     let newCount: Int
+    let practiceCount: Int
     let newRemainingToday: Int
+    /// True when this is an extra round rather than the day's own work.
+    let extra: Bool
 }
 
 struct GradeIn: Codable, Sendable {
@@ -87,6 +93,7 @@ struct GradeResult: Codable, Sendable {
     let cardId: String
     let accepted: Bool
     let duplicate: Bool
+    let practice: Bool
     let nextDue: Date?
     let intervalDays: Double?
     let isLeech: Bool
@@ -97,7 +104,7 @@ struct GradeBatchResult: Codable, Sendable {
     let results: [GradeResult]
 }
 
-struct CardSummary: Codable, Sendable, Identifiable {
+struct CardSummary: Codable, Sendable, Identifiable, Equatable {
     let id: String
     let kind: CardKind
     let state: Int
@@ -121,7 +128,10 @@ struct Word: Codable, Sendable, Identifiable, Equatable {
     let createdAt: Date
     let cards: [CardSummary]
 
-    static func == (lhs: Word, rhs: Word) -> Bool { lhs.id == rhs.id }
+    // Equality is synthesised on purpose. Comparing ids alone reads as
+    // "same word", but SwiftUI uses this to decide whether a row needs
+    // redrawing: an edited word kept its id, so the deck went on showing
+    // the old spelling until something else forced the list to rebuild.
 
     var display: String { article.map { "\($0) \(lemma)" } ?? lemma }
 }
@@ -130,6 +140,16 @@ struct WordCreate: Codable, Sendable {
     let lemma: String
     let nativeGloss: String
     var notes: String?
+    /// Where the word came from -- "manual" or "ocr". The server has recorded
+    /// this since the schema was written; the app just never sent it, so every
+    /// screenshot import looked hand-typed. Omitted rather than defaulted here,
+    /// so the server's own default still applies to callers that don't care.
+    var source: WordSource?
+}
+
+enum WordSource: String, Codable, Sendable {
+    case manual
+    case ocr
 }
 
 /// Every field is sent on every edit: the form always holds all three, and
@@ -217,6 +237,19 @@ struct TranslateRequest: Codable, Sendable {
 
 struct TranslateResponse: Codable, Sendable {
     let translation: String
+    let into: TranslationDirection
+}
+
+struct TranslateBatchRequest: Codable, Sendable {
+    let texts: [String]
+    let into: TranslationDirection
+}
+
+struct TranslateBatchResponse: Codable, Sendable {
+    /// One entry per word sent, in the same order. A word the server couldn't
+    /// translate comes back as nil rather than being dropped, so the blanks stay
+    /// attached to the word they belong to.
+    let translations: [String?]
     let into: TranslationDirection
 }
 

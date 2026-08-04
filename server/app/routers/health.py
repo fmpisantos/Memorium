@@ -83,7 +83,9 @@ async def health(db: Session = Depends(get_db), settings: Settings = Depends(get
         "db": db_detail if not db_ok else "ok",
         "claude_auth": "ok" if cli_ok else "unavailable",
         "claude_detail": cli_detail,
-        "claude_model": settings.claude_model,
+        # Per task, since they no longer have to agree -- reporting only the
+        # default would hide an override that is what's actually running.
+        "claude_models": settings.task_models,
         "queue_depth": queue_depth or 0,
         "enrichment_failed": failed or 0,
     }

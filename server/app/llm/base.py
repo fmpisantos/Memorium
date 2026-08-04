@@ -59,6 +59,18 @@ class TranslationOut(_Strict):
     translation: str
 
 
+class BatchTranslationOut(_Strict):
+    """One translation per input, in the order they were sent.
+
+    A word the model cannot translate comes back as an empty string rather than
+    being omitted: a shorter list would silently shift every translation after
+    it onto the wrong word, which is the failure this whole endpoint exists to
+    avoid.
+    """
+
+    translations: list[str]
+
+
 class StoryOut(_Strict):
     title: str
     target: str
@@ -101,6 +113,14 @@ class ContentGenerator(Protocol):
         source_lang: str,
         target_lang: str,
     ) -> TranslationOut: ...
+
+    async def translate_batch(
+        self,
+        texts: list[str],
+        into: Literal["source", "target"],
+        source_lang: str,
+        target_lang: str,
+    ) -> BatchTranslationOut: ...
 
     async def daily_story(
         self, lemmas: list[str], source_lang: str, target_lang: str

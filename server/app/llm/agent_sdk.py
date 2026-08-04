@@ -26,6 +26,7 @@ from pydantic import BaseModel, ValidationError
 from app.llm import prompts
 from app.llm.base import (
     AnswerJudgement,
+    BatchTranslationOut,
     ContentGenerationError,
     MnemonicOut,
     StoryOut,
@@ -38,21 +39,40 @@ log = logging.getLogger("memorium.llm")
 
 T = TypeVar("T", bound=BaseModel)
 
+
+def _clean_translation(text: str) -> str:
+    """Strip the quotes models wrap a bare answer in despite being told not to."""
+    return text.strip().strip('"“”').strip()
+
 # The CLI is given a directory of its own. With tools disabled nothing should
 # ever touch it -- this is the second lock on the same door.
 _SANDBOX_CWD = Path(tempfile.gettempdir()) / "memorium-agent-cwd"
 
 
 class AgentSDKGenerator:
-    def __init__(self, model: str, timeout_seconds: int = 180):
+    def __init__(
+        self,
+        model: str,
+        timeout_seconds: int = 180,
+        task_models: dict[str, str] | None = None,
+    ):
         self.model = model
+        # Per-task overrides, keyed by the task names in `config.task_models`.
+        # A missing or empty entry falls back to `model`, so callers that don't
+        # care about the split can keep passing a single name.
+        self.task_models = task_models or {}
         self.timeout_seconds = timeout_seconds
         _SANDBOX_CWD.mkdir(parents=True, exist_ok=True)
 
+    def model_for(self, task: str) -> str:
+        return self.task_models.get(task) or self.model
+
     # ----------------------------------------------------------------- #
-    def _options(self, system_prompt: str, schema: dict[str, Any]) -> ClaudeAgentOptions:
+    def _options(
+        self, system_prompt: str, schema: dict[str, Any], model: str | None = None
+    ) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
-            model=self.model,
+            model=model or self.model,
             system_prompt=system_prompt,
             output_format=schema,
             # No tools. Not "no dangerous tools" -- none at all.
@@ -66,9 +86,9 @@ class AgentSDKGenerator:
         )
 
     async def _generate(
-        self, model_cls: type[T], system_prompt: str, user_prompt: str
+        self, model_cls: type[T], system_prompt: str, user_prompt: str, task: str
     ) -> T:
-        options = self._options(system_prompt, json_schema(model_cls))
+        options = self._options(system_prompt, json_schema(model_cls), self.model_for(task))
 
         async def _run() -> dict[str, Any] | None:
             result: ResultMessage | None = None
@@ -115,6 +135,7 @@ class AgentSDKGenerator:
             WordEnrichment,
             prompts.ENRICH_SYSTEM,
             prompts.enrich_prompt(lemma, native_gloss, source_lang, target_lang, known_words),
+            task="enrich",
         )
         # A cloze card blanks out `cloze_word` by substring match. If the model
         # returned a form that isn't actually in the sentence, the blank would
@@ -136,6 +157,7 @@ class AgentSDKGenerator:
             AnswerJudgement,
             prompts.GRADE_SYSTEM,
             prompts.grade_prompt(prompt, expected, given, source_lang, target_lang),
+            task="grade",
         )
 
     async def mnemonic(
@@ -145,6 +167,7 @@ class AgentSDKGenerator:
             MnemonicOut,
             prompts.MNEMONIC_SYSTEM,
             prompts.mnemonic_prompt(lemma, native_gloss, source_lang, target_lang),
+            task="mnemonic",
         )
 
     async def translate(
@@ -158,10 +181,44 @@ class AgentSDKGenerator:
             TranslationOut,
             prompts.TRANSLATE_SYSTEM,
             prompts.translate_prompt(text, into, source_lang, target_lang),
+            task="translate",
         )
         # Models like to wrap a bare answer in quotes despite being told not
         # to, and the stray character would end up in the deck.
-        result.translation = result.translation.strip().strip('"“”').strip()
+        result.translation = _clean_translation(result.translation)
+        return result
+
+    async def translate_batch(
+        self,
+        texts: list[str],
+        into: Literal["source", "target"],
+        source_lang: str,
+        target_lang: str,
+    ) -> BatchTranslationOut:
+        if not texts:
+            return BatchTranslationOut(translations=[])
+
+        result = await self._generate(
+            BatchTranslationOut,
+            prompts.BATCH_TRANSLATE_SYSTEM,
+            prompts.batch_translate_prompt(texts, into, source_lang, target_lang),
+            # The same task as a single translation, so MEMORIUM_TRANSLATE_MODEL
+            # governs both rather than the batch quietly running on a different
+            # model to the one-at-a-time path.
+            task="translate",
+        )
+        translations = [_clean_translation(text) for text in result.translations]
+
+        # Length is the one thing the caller cannot recover from, because it
+        # pairs translations back to words by position. A model that returned
+        # the wrong number of them has mislabelled an unknown subset, so the
+        # whole batch is discarded rather than written into the deck wrong --
+        # the caller falls back to translating one at a time.
+        if len(translations) != len(texts):
+            raise ContentGenerationError(
+                f"Asked for {len(texts)} translations and got {len(translations)}"
+            )
+        result.translations = translations
         return result
 
     async def daily_story(
@@ -171,4 +228,5 @@ class AgentSDKGenerator:
             StoryOut,
             prompts.STORY_SYSTEM,
             prompts.story_prompt(lemmas, source_lang, target_lang),
+            task="story",
         )

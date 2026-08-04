@@ -33,11 +33,31 @@ class Settings(BaseSettings):
     # --- Claude --------------------------------------------------------------
     # The Agent SDK spawns the `claude` CLI, which authenticates from the
     # environment (CLAUDE_CODE_OAUTH_TOKEN for headless use).
-    claude_model: str = "claude-opus-5"
+    #
+    # Haiku is the default because every task here is small: a word, a couple of
+    # sentences, a five-sentence story. Nothing needs a frontier model, and each
+    # call forks its own subprocess, so the cheap model is also the fast one.
+    claude_model: str = "claude-haiku-4-5"
+    # Per-task overrides. Empty means "use claude_model", so raising one task to
+    # a bigger model is an env var (MEMORIUM_ENRICH_MODEL=...) rather than a
+    # code change.
+    translate_model: str = ""
+    enrich_model: str = ""
+    grade_model: str = ""
+    mnemonic_model: str = ""
+    story_model: str = ""
     # Each call forks a CLI subprocess, so keep this small.
     enrichment_workers: int = 2
     # Per-call ceiling so a wedged generation can't hang the queue forever.
     claude_timeout_seconds: int = 180
+
+    @property
+    def task_models(self) -> dict[str, str]:
+        """Model per task, with `claude_model` filling in the blanks."""
+        return {
+            task: getattr(self, f"{task}_model") or self.claude_model
+            for task in ("translate", "enrich", "grade", "mnemonic", "story")
+        }
 
     # --- study defaults (seeded into the profile on first run) ---------------
     default_source_lang: str = "en-US"

@@ -52,7 +52,7 @@ anyone has signed in. It carries no deck content.
 are still good, which is the one thing that expires. See
 [Configuration](#configuration) for what to do when it doesn't say `ok`.
 
-Tests: `.venv/bin/python -m pytest` (81 tests).
+Tests: `.venv/bin/python -m pytest` (88 tests).
 
 ### On a Raspberry Pi
 
@@ -172,7 +172,8 @@ Optional; the defaults are what `.env.example` ships with.
 | Variable | Default | What it does |
 |---|---|---|
 | `MEMORIUM_DATABASE_URL` | `sqlite:///./data/memorium.db` | Deck storage. The path is relative to `server/`, so start the server from there (`run.sh` and Docker handle it). |
-| `MEMORIUM_CLAUDE_MODEL` | `claude-opus-5` | Model used for example sentences and tier-3 grading. |
+| `MEMORIUM_CLAUDE_MODEL` | `claude-haiku-4-5` | Default model for every Claude task. Each one is small — a word, a few sentences, a short story — so the cheapest model is also the fastest. |
+| `MEMORIUM_TRANSLATE_MODEL` etc. | *(the default above)* | Per-task override, one per task: `TRANSLATE`, `ENRICH`, `GRADE`, `MNEMONIC`, `STORY`. Set one to raise just that task to a bigger model without touching the rest. `/health` reports whatever is actually in force. |
 | `MEMORIUM_ENRICHMENT_WORKERS` | `2` | Concurrent enrichment jobs. Each forks a CLI subprocess, so raising it on a Pi mostly buys swap. |
 | `MEMORIUM_CLAUDE_TIMEOUT_SECONDS` | `180` | Per-call ceiling, so one wedged generation can't stall the queue. |
 | `MEMORIUM_PORT` / `MEMORIUM_HOST` | `8000` / `0.0.0.0` | Read by `run.sh` only; equivalent to its `-p` / `-H` flags. |
@@ -230,7 +231,7 @@ write fails with `errSecMissingEntitlement` — silently — and the symptom is
 being asked to sign in again on every single launch.
 
 Tests: `xcodebuild test -project Memorium.xcodeproj -scheme Memorium \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` (19 tests).
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` (33 tests).
 
 To point a build at a server on your desk without editing `project.yml`:
 
@@ -270,6 +271,18 @@ cards stay silent until you reveal, and Repeat works throughout.
 grading it would feed the scheduler a signal you never gave. Skipped cards come
 back at the end of the session.
 
+**The daily limit paces new words; it never stops you studying.** When the day's
+queue runs out, *Keep going* asks for another round: a fresh budget's worth of
+new words, topped up with words you already know, and shuffled — a round served
+in any fixed order is an order you'd end up reciting instead of recalling.
+
+**Practising early costs nothing.** A card answered before it comes due is
+recorded in the review log and flagged as practice; its schedule is left exactly
+where it was. FSRS would otherwise fold the early answer in, so drilling a word
+three times in an evening would drag its next review closer — the reward for
+practising more would be being tested more often. Cards that genuinely *are* due
+reschedule as normal, whichever round they turn up in.
+
 **Offline is expected.** Grades are written to an on-device outbox and flushed
 when the network returns. Each carries a client-generated ID, so a retry after a
 half-sent request can't double-schedule a card.
@@ -301,12 +314,26 @@ negative would punish a correct answer and corrupt your schedule.
   setting that persists across launches; turn it off and it stays off. Tapping
   **Add** with one side still blank translates first, then saves.
 - **From screenshots** — Deck → ＋ → Import. Vision reads every line with its
-  bounding box and infers one- or two-column layout; overlapping shots of a
-  scrolling list are deduplicated. Deliberately not a Duolingo-specific parser,
-  since Practice Hub's layout varies by course and gets redesigned.
+  bounding box, and the layout is worked out from measurements rather than from
+  a template: the list is the column of lines sharing a left edge, and a row
+  ends where the vertical gap jumps. Rows carry a word and, only sometimes, a
+  translation — Duolingo prints one under roughly half the words it lists — so
+  nothing assumes a fixed number of lines per row. Overlapping shots of a
+  scrolling list are deduplicated, keeping whichever reading is more complete.
+
+  **The missing translations are asked for in one request**, not one each, so a
+  hundred-word list doesn't become a hundred round trips. Whatever your device
+  can translate offline, it does; the rest goes to the server together.
+
+  Deliberately not a Duolingo-specific parser, since Practice Hub's layout
+  varies by course and gets redesigned. What keeps it honest is
+  `MemoriumTests/Fixtures/Screenshots/` — real screenshots of a real word list,
+  with the words a human reads off them written down beside. A redesign fails
+  those tests instead of quietly importing nonsense.
 
   **Everything lands on a review screen first.** OCR misreads diacritics, and one
-  bad card poisons months of reviews.
+  bad card poisons months of reviews. Anything that didn't look like vocabulary
+  arrives unticked rather than deleted, so you can see what was rejected.
 
 ---
 

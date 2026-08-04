@@ -16,12 +16,31 @@ from sqlalchemy import (
     TypeDecorator,
     UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
 from sqlalchemy.types import JSON
 
 
 class Base(DeclarativeBase):
     pass
+
+
+def normalise_lemma(lemma: str) -> str:
+    """Collapses the whitespace that comes along with a paste."""
+    return " ".join(lemma.split())
+
+
+def deck_key(lemma: str) -> str:
+    """The deck's identity for a word: one entry per word, whatever case it was
+    typed in.
+
+    The learner sees 'perro' and 'Perro' as the same word, and so does the deck
+    -- the translator capitalises a word it returns on its own, so the two
+    spellings arrive by perfectly ordinary routes.
+
+    Casefolded here rather than compared with `lower()` in SQL, because
+    SQLite's `lower()` is ASCII-only: it would file Öl and öl as two words.
+    """
+    return normalise_lemma(lemma).casefold()
 
 
 class UTCDateTime(TypeDecorator):
@@ -118,10 +137,14 @@ class Profile(Base):
 
 class Word(Base):
     __tablename__ = "words"
-    __table_args__ = (UniqueConstraint("lemma", name="uq_words_lemma"),)
+    # Uniqueness lives on the key, not the lemma: it is the stronger of the two
+    # (no two lemmas can share a key) and it is the one the learner means.
+    __table_args__ = (UniqueConstraint("lemma_key", name="uq_words_lemma_key"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     lemma: Mapped[str] = mapped_column(String(200), index=True)
+    # Derived from the lemma, never set by hand -- see the validator below.
+    lemma_key: Mapped[str] = mapped_column(String(200))
     native_gloss: Mapped[str] = mapped_column(String(400))
 
     # Filled by enrichment; all optional so a word is usable the moment it's added.
@@ -149,6 +172,18 @@ class Word(Base):
         kw.setdefault("enrichment_status", EnrichmentStatus.pending)
         kw.setdefault("created_at", utcnow())
         super().__init__(**kw)
+
+    @validates("lemma")
+    def _keep_key_in_step(self, _field: str, lemma: str) -> str:
+        """Ties the key to the lemma at every write, new word or rename alike.
+
+        A key that a caller has to remember to set is a key that goes stale on
+        the one path nobody thought about, and a stale key means a duplicate
+        the unique constraint cannot see.
+        """
+        lemma = normalise_lemma(lemma)
+        self.lemma_key = deck_key(lemma)
+        return lemma
 
 
 class Card(Base):
@@ -219,9 +254,18 @@ class ReviewLog(Base):
     elapsed_days: Mapped[float | None] = mapped_column(Float, default=None)
     mode: Mapped[str | None] = mapped_column(String(20), default=None)  # e.g. "speaking"
 
+    # A review the learner asked for, taken before the card came due. Recorded
+    # like any other -- it happened, and the optimiser should be able to see it
+    # -- but flagged, because it left the schedule alone. See scheduler.is_practice.
+    practice: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # Client-generated UUID. Makes outbox flushes idempotent: replaying a grade
     # after a flaky connection must not double-schedule the card.
     client_grade_id: Mapped[str] = mapped_column(String(36), index=True)
+
+    def __init__(self, **kw):
+        kw.setdefault("practice", False)
+        super().__init__(**kw)
 
 
 class Enrichment(Base):

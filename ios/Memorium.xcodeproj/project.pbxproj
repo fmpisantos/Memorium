@@ -16,17 +16,25 @@
 		2E3A55A2629F47CF382AAB9E /* CardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1945A398B17E43BEF1C366 /* CardView.swift */; };
 		3A30A9B71F50B38F2C3672A8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */; };
 		3BA508C722DB540DC061D1CA /* DeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 727BB2BBFE15731A1EEA95FD /* DeckView.swift */; };
+		3EB812914EF75AC3042A4744 /* words-02.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 3154EDFD1831874898B8C17C /* words-02.jpeg */; };
+		437A1672AD6DB73ECACFFC33 /* ScreenshotImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3895762600BCC3D503311292 /* ScreenshotImportTests.swift */; };
 		4DDFF269E623173495A44578 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDF7B37DDD252DB3C281518 /* OnboardingView.swift */; };
 		4ED09BA1787EF4B01ADBF628 /* GradingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2017898C210FD1CC5BCBE0C /* GradingTests.swift */; };
 		5350B613B6FD98BC8E204336 /* ScreenshotImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795EE69B98309AF4A334901B /* ScreenshotImporter.swift */; };
+		5A0235819D3E7D05D97D52BF /* TranslationDownloadRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95C1D00F95D2B36718FA349F /* TranslationDownloadRow.swift */; };
 		5E742037384BE07C64960EC7 /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D6A032BCDBC33D6812BF65 /* ImportView.swift */; };
+		68C9A2A3E3C2E7F116090A45 /* words-03.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 3CD436F88890EF7E308F6724 /* words-03.jpeg */; };
+		6932B84ACB30E7AFF17B2147 /* words-01.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2563818D1458709D305BD35A /* words-01.jpeg */; };
 		715AA328B9381183DAC51D9E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = E49A9896029507825674FBC2 /* GoogleSignIn */; };
+		79CB0D0D36E4F28343A5C6D3 /* TranslationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8745656C606CB8AEBF198EAE /* TranslationTests.swift */; };
 		7CA1672E2E6CA77E766D27CC /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 649A36544A0D65D5ED9A2FB2 /* Models.swift */; };
 		8724611C1CB21D5EE2EA7C95 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA3FB2ADF4AB9280EB7C8B67 /* AppSettings.swift */; };
 		8C0C50869623B184EB6F895C /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD16C0E04A7A56924DC6BEA6 /* StudyView.swift */; };
+		8E203F57CE1432F98AF2E7C2 /* WordListLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 988FF0189A443FCE2BE88586 /* WordListLayout.swift */; };
 		8F9A9E56D4A3692EA3F06822 /* StudyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91BCC4BE03200AF2478187AD /* StudyViewModel.swift */; };
 		9544AA6EE413D53F3C2F16E7 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A19819B93B58C4A900EE884 /* APIClient.swift */; };
 		987771225F7A1F915465D048 /* Outbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C133DD951672613EAB55E1C1 /* Outbox.swift */; };
+		E39B05092531A23EFA07A5AF /* LocalTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D0E007302CC209089DEA2E /* LocalTranslator.swift */; };
 		E8FE16E2E9B88EB0B63FEC72 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEC20720423D5A08F2667ACA /* AuthService.swift */; };
 		EEE73CC3D098A70DACB95642 /* MemoriumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2F1A9C39DC36418144274A /* MemoriumApp.swift */; };
 		F674ABAF9331CB1D3313647A /* RecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */; };
@@ -46,11 +54,16 @@
 /* Begin PBXFileReference section */
 		0A85360992DE8FE27D82062E /* Memorium.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Memorium.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A86A1A1C884DF4381B782FF /* MemoriumTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MemoriumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20D0E007302CC209089DEA2E /* LocalTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTranslator.swift; sourceTree = "<group>"; };
+		2563818D1458709D305BD35A /* words-01.jpeg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "words-01.jpeg"; sourceTree = "<group>"; };
 		266BEEF1975FB814CC5EC44C /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		2A2A57E82C8EB70CEEDB180F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3154EDFD1831874898B8C17C /* words-02.jpeg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "words-02.jpeg"; sourceTree = "<group>"; };
 		33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecognitionService.swift; sourceTree = "<group>"; };
 		37D6A032BCDBC33D6812BF65 /* ImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportView.swift; sourceTree = "<group>"; };
+		3895762600BCC3D503311292 /* ScreenshotImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotImportTests.swift; sourceTree = "<group>"; };
 		3BDF7B37DDD252DB3C281518 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		3CD436F88890EF7E308F6724 /* words-03.jpeg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "words-03.jpeg"; sourceTree = "<group>"; };
 		5281B830D50B9907475D560E /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		649A36544A0D65D5ED9A2FB2 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		6A19819B93B58C4A900EE884 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -58,7 +71,10 @@
 		727BB2BBFE15731A1EEA95FD /* DeckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckView.swift; sourceTree = "<group>"; };
 		746B431D9C243CC6EE7D61AF /* LocalGrader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalGrader.swift; sourceTree = "<group>"; };
 		795EE69B98309AF4A334901B /* ScreenshotImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotImporter.swift; sourceTree = "<group>"; };
+		8745656C606CB8AEBF198EAE /* TranslationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationTests.swift; sourceTree = "<group>"; };
 		91BCC4BE03200AF2478187AD /* StudyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyViewModel.swift; sourceTree = "<group>"; };
+		95C1D00F95D2B36718FA349F /* TranslationDownloadRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationDownloadRow.swift; sourceTree = "<group>"; };
+		988FF0189A443FCE2BE88586 /* WordListLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListLayout.swift; sourceTree = "<group>"; };
 		9DDF3031CE12936318BA1F32 /* AddWordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWordView.swift; sourceTree = "<group>"; };
 		C133DD951672613EAB55E1C1 /* Outbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Outbox.swift; sourceTree = "<group>"; };
 		C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -113,7 +129,10 @@
 			children = (
 				CF3720DB1DA41B60CD429742 /* DraftTests.swift */,
 				E2017898C210FD1CC5BCBE0C /* GradingTests.swift */,
+				3895762600BCC3D503311292 /* ScreenshotImportTests.swift */,
 				266BEEF1975FB814CC5EC44C /* SettingsTests.swift */,
+				8745656C606CB8AEBF198EAE /* TranslationTests.swift */,
+				6BF36C2D01F70AA02BC47F07 /* Fixtures */,
 			);
 			path = MemoriumTests;
 			sourceTree = "<group>";
@@ -122,6 +141,7 @@
 			isa = PBXGroup;
 			children = (
 				C9B61A468BF0820BCC3A5E38 /* SettingsView.swift */,
+				95C1D00F95D2B36718FA349F /* TranslationDownloadRow.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -153,6 +173,14 @@
 			path = Onboarding;
 			sourceTree = "<group>";
 		};
+		6BF36C2D01F70AA02BC47F07 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				F53BD7F3F832F89139B70521 /* Screenshots */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		8889BF49E78BC6D615FE3BA8 /* Deck */ = {
 			isa = PBXGroup;
 			children = (
@@ -179,9 +207,11 @@
 			isa = PBXGroup;
 			children = (
 				746B431D9C243CC6EE7D61AF /* LocalGrader.swift */,
+				20D0E007302CC209089DEA2E /* LocalTranslator.swift */,
 				33E28CF4F0A35BA5E028A45D /* RecognitionService.swift */,
 				795EE69B98309AF4A334901B /* ScreenshotImporter.swift */,
 				5281B830D50B9907475D560E /* SpeechService.swift */,
+				988FF0189A443FCE2BE88586 /* WordListLayout.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -193,6 +223,16 @@
 				1E33CE8313744ECAAF1F2007 /* MemoriumTests */,
 				52B88F21B6465B986C80170B /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		F53BD7F3F832F89139B70521 /* Screenshots */ = {
+			isa = PBXGroup;
+			children = (
+				2563818D1458709D305BD35A /* words-01.jpeg */,
+				3154EDFD1831874898B8C17C /* words-02.jpeg */,
+				3CD436F88890EF7E308F6724 /* words-03.jpeg */,
+			);
+			path = Screenshots;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -224,6 +264,7 @@
 			buildConfigurationList = 5E65F621E94E455FB1C97DF3 /* Build configuration list for PBXNativeTarget "MemoriumTests" */;
 			buildPhases = (
 				0DF4B0F43D264D70B3A2B827 /* Sources */,
+				D393EA7017126C59AC4018B0 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -286,6 +327,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D393EA7017126C59AC4018B0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6932B84ACB30E7AFF17B2147 /* words-01.jpeg in Resources */,
+				3EB812914EF75AC3042A4744 /* words-02.jpeg in Resources */,
+				68C9A2A3E3C2E7F116090A45 /* words-03.jpeg in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -295,7 +346,9 @@
 			files = (
 				2950DD1C95EBEA2048D22BDC /* DraftTests.swift in Sources */,
 				4ED09BA1787EF4B01ADBF628 /* GradingTests.swift in Sources */,
+				437A1672AD6DB73ECACFFC33 /* ScreenshotImportTests.swift in Sources */,
 				0998A86DBCCD369023544BFF /* SettingsTests.swift in Sources */,
+				79CB0D0D36E4F28343A5C6D3 /* TranslationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -311,6 +364,7 @@
 				3BA508C722DB540DC061D1CA /* DeckView.swift in Sources */,
 				5E742037384BE07C64960EC7 /* ImportView.swift in Sources */,
 				119B083223B6758485438BD8 /* LocalGrader.swift in Sources */,
+				E39B05092531A23EFA07A5AF /* LocalTranslator.swift in Sources */,
 				EEE73CC3D098A70DACB95642 /* MemoriumApp.swift in Sources */,
 				7CA1672E2E6CA77E766D27CC /* Models.swift in Sources */,
 				4DDFF269E623173495A44578 /* OnboardingView.swift in Sources */,
@@ -321,6 +375,8 @@
 				038F9A7B2D580A20669D780A /* SpeechService.swift in Sources */,
 				8C0C50869623B184EB6F895C /* StudyView.swift in Sources */,
 				8F9A9E56D4A3692EA3F06822 /* StudyViewModel.swift in Sources */,
+				5A0235819D3E7D05D97D52BF /* TranslationDownloadRow.swift in Sources */,
+				8E203F57CE1432F98AF2E7C2 /* WordListLayout.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

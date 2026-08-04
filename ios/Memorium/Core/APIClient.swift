@@ -193,8 +193,11 @@ struct APIClient: Sendable {
 
     // MARK: - Study
 
-    func queue() async throws -> StudyQueue {
-        try decode(StudyQueue.self, from: await request("GET", "study/queue"))
+    /// The day's queue, or -- with `extra` -- another round on top of it, which
+    /// the server is always willing to hand out.
+    func queue(extra: Bool = false) async throws -> StudyQueue {
+        let query = extra ? [URLQueryItem(name: "extra", value: "true")] : []
+        return try decode(StudyQueue.self, from: await request("GET", "study/queue", query: query))
     }
 
     func submit(grades: [GradeIn]) async throws -> [GradeResult] {
@@ -225,6 +228,29 @@ struct APIClient: Sendable {
         let body = try Self.encoder.encode(TranslateRequest(text: text, into: into))
         let data = try await request("POST", "translate", body: body)
         return try decode(TranslateResponse.self, from: data).translation
+    }
+
+    /// Fills many halves at once, for a screenshot import.
+    ///
+    /// Duolingo prints a translation under only about half the words it lists,
+    /// so an import arrives with dozens of blanks. One request each would be
+    /// dozens of round trips before the deck appears; this is one.
+    ///
+    /// The result is positional -- one entry per word sent, nil where the server
+    /// had no answer -- so the caller can zip it straight back onto its words.
+    func translateBatch(_ texts: [String], into: TranslationDirection) async throws -> [String?] {
+        guard !texts.isEmpty else { return [] }
+        let body = try Self.encoder.encode(TranslateBatchRequest(texts: texts, into: into))
+        let data = try await request("POST", "translate/batch", body: body)
+        let response = try decode(TranslateBatchResponse.self, from: data)
+        // Position is the only thing tying a translation to its word, so a
+        // list of the wrong length is unusable rather than partly usable.
+        guard response.translations.count == texts.count else {
+            throw APIError.decoding(
+                "The server sent \(response.translations.count) translations for \(texts.count) words."
+            )
+        }
+        return response.translations
     }
 
     func enrichmentStatus() async throws -> EnrichStatus {

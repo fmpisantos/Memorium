@@ -1,10 +1,13 @@
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 _settings = get_settings()
 
@@ -46,3 +49,64 @@ def init_db() -> None:
     from app import models  # noqa: F401  (registers mappers before create_all)
 
     models.Base.metadata.create_all(bind=engine)
+    _add_lemma_keys()
+    _add_review_log_practice()
+
+
+def _add_review_log_practice() -> None:
+    """Marks an existing review log as entirely non-practice.
+
+    Same story as the lemma keys: no migration tool, one added column. The
+    backfill is the easy kind -- every review already in the log moved the
+    schedule, because extra practice sessions did not exist when it was
+    written -- so a false for all of them is not a guess, it is the truth.
+    """
+    if "practice" in {c["name"] for c in inspect(engine).get_columns("review_logs")}:
+        return  # Fresh database: create_all already built it.
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE review_logs ADD COLUMN practice BOOLEAN NOT NULL DEFAULT 0")
+        )
+
+
+def _add_lemma_keys() -> None:
+    """Brings a deck built before words were kept as a set up to the new shape.
+
+    There is no migration tool here -- `create_all` builds new databases and
+    leaves existing ones alone -- so the one column that changed is added by
+    hand. Backfilling it is mechanical, except where the old deck already holds
+    the same word twice in different cases, which is the very thing the key
+    exists to prevent. Those collapse onto the copy that was added first,
+    because that is the one carrying the review history.
+    """
+    if "lemma_key" in {c["name"] for c in inspect(engine).get_columns("words")}:
+        return  # Fresh database: create_all already built it.
+
+    from app.models import Word, deck_key
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE words ADD COLUMN lemma_key VARCHAR(200)"))
+
+    dropped: list[str] = []
+    with SessionLocal() as db:
+        seen: set[str] = set()
+        for word in list(db.scalars(select(Word).order_by(Word.created_at))):
+            key = deck_key(word.lemma)
+            if key in seen:
+                dropped.append(word.lemma)
+                db.delete(word)  # Cards and review logs cascade with it.
+                continue
+            seen.add(key)
+            word.lemma_key = key
+        db.commit()
+
+    with engine.begin() as conn:
+        conn.execute(text("CREATE UNIQUE INDEX uq_words_lemma_key ON words (lemma_key)"))
+
+    if dropped:
+        logger.warning(
+            "Merged %d duplicate word(s) already in the deck, keeping the oldest copy of each: %s",
+            len(dropped),
+            ", ".join(sorted(dropped)),
+        )

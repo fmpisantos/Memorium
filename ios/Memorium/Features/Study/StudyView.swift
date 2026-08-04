@@ -85,11 +85,13 @@ struct StudyView: View {
             finished(model)
 
         case let .empty(message):
-            ContentUnavailableView(
-                "All caught up",
-                systemImage: "checkmark.circle",
-                description: Text(message)
-            )
+            ContentUnavailableView {
+                Label("All caught up", systemImage: "checkmark.circle")
+            } description: {
+                Text(message)
+            } actions: {
+                moreButtons(model)
+            }
 
         case let .failed(message):
             ContentUnavailableView {
@@ -108,6 +110,11 @@ struct StudyView: View {
             ProgressView(value: model.progress)
             HStack {
                 Text("\(model.index + 1) of \(model.cards.count)")
+                if model.isExtra {
+                    // Worth saying: answering a card early here deliberately
+                    // leaves its next review date alone.
+                    Text("· extra")
+                }
                 Spacer()
                 if model.isOffline {
                     Label("Offline — saved on device", systemImage: "wifi.slash")
@@ -133,8 +140,20 @@ struct StudyView: View {
                     : "You reviewed \(model.reviewedCount) card\(model.reviewedCount == 1 ? "" : "s")."
             )
         } actions: {
-            Button("Check for more") { Task { await model.load() } }
+            moreButtons(model)
+        }
+    }
+
+    /// Finishing a session is never a locked door. The daily goal paces how
+    /// many new words arrive; carrying on is always one tap away, and the
+    /// extra round is drawn at random so it can't be learned as a sequence.
+    @ViewBuilder
+    private func moreButtons(_ model: StudyViewModel) -> some View {
+        VStack(spacing: 8) {
+            Button("Keep going") { Task { await model.load(extra: true) } }
                 .buttonStyle(.borderedProminent)
+            Button("Check what's due") { Task { await model.load() } }
+                .buttonStyle(.bordered)
         }
     }
 }

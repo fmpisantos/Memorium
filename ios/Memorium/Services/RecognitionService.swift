@@ -24,9 +24,18 @@ final class RecognitionService {
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
 
+    // Every system callback in this file is explicitly `@Sendable`. This class
+    // is `@MainActor`, so a closure written inside it is inferred to be
+    // MainActor-isolated -- and both permission callbacks and the audio tap are
+    // documented to arrive on some other thread. Swift 6 checks that assumption
+    // at runtime and traps, which crashed the app the instant "Say it" was
+    // tapped. `@Sendable` makes them nonisolated, and they hop back explicitly.
+
     func authorize() async -> Bool {
         let speech = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+            SFSpeechRecognizer.requestAuthorization { @Sendable status in
+                continuation.resume(returning: status)
+            }
         }
         guard speech == .authorized else {
             state = .denied("Speech recognition permission was declined.")
@@ -34,7 +43,9 @@ final class RecognitionService {
         }
 
         let mic = await withCheckedContinuation { continuation in
-            AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
+            AVAudioApplication.requestRecordPermission { @Sendable granted in
+                continuation.resume(returning: granted)
+            }
         }
         guard mic else {
             state = .denied("Microphone permission was declined.")
@@ -80,9 +91,20 @@ final class RecognitionService {
 
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
+        // An input the route hasn't produced yet reports 0Hz / 0 channels, and
+        // installing a tap with that format is a hard crash inside AVFAudio
+        // rather than an error we could catch.
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            state = .denied("The microphone isn't available right now.")
+            return
+        }
+
         input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            request.append(buffer)
+        // Runs on the audio I/O thread: nonisolated by necessity. Appending
+        // there is what SFSpeechAudioBufferRecognitionRequest is built for.
+        nonisolated(unsafe) let sink = request
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
+            sink.append(buffer)
         }
 
         engine.prepare()
@@ -94,18 +116,16 @@ final class RecognitionService {
         }
 
         state = .listening
-        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+        // Results land on `recognizer.queue`, which is the main queue by
+        // default -- but that is a settable property, so this one is pinned
+        // nonisolated too and only Sendable values cross to the main actor.
+        task = recognizer.recognitionTask(with: request) { @Sendable [weak self] result, error in
+            let text = result?.bestTranscription.formattedString
+            let ended = result?.isFinal == true || error != nil
             Task { @MainActor in
                 guard let self else { return }
-                if let result {
-                    self.transcript = result.bestTranscription.formattedString
-                    if result.isFinal {
-                        self.finish()
-                    }
-                }
-                if error != nil {
-                    self.finish()
-                }
+                if let text { self.transcript = text }
+                if ended { self.finish() }
             }
         }
     }
@@ -125,9 +145,13 @@ final class RecognitionService {
         stop()
         state = .finished(transcript)
         // Hand the audio session back so pronunciation playback isn't left
-        // stuck in record mode.
+        // stuck in record mode: `.measurement` turns off the output processing
+        // TTS relies on, and it stays that way until the category is restored.
         try? AVAudioSession.sharedInstance().setActive(
             false, options: .notifyOthersOnDeactivation
+        )
+        try? AVAudioSession.sharedInstance().setCategory(
+            .playback, mode: .spokenAudio, options: [.duckOthers]
         )
     }
 
