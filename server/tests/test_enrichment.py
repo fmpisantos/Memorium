@@ -211,6 +211,46 @@ def test_status_endpoint_reports_failures(client, db):
         set_service(None)
 
 
+def test_retrying_failures_requeues_them_and_leaves_everything_else_alone(client, db):
+    """What the app's retry button asks for: the words it counted, and no
+    others. Words already done must not be regenerated -- that is billed work
+    to replace sentences the learner may already have studied."""
+    service = EnrichmentService(
+        generator=FakeGenerator(fail_with=ContentGenerationError("529")), workers=0
+    )
+    set_service(service)
+    try:
+        seed_profile(db)
+        failed = client.post("/words", json={"lemma": "perro", "native_gloss": "dog"}).json()
+        asyncio.run(get_service_process(failed["id"]))
+
+        service.generator = FakeGenerator()
+        done = client.post("/words", json={"lemma": "gato", "native_gloss": "cat"}).json()
+        asyncio.run(get_service_process(done["id"]))
+
+        status = client.post("/enrich", json={"all_failed": True}).json()
+        assert status["failed"] == 0
+
+        db.expire_all()
+        assert db.get(Word, failed["id"]).enrichment_status is EnrichmentStatus.queued
+        assert db.get(Word, done["id"]).enrichment_status is EnrichmentStatus.done
+    finally:
+        set_service(None)
+
+
+def test_retrying_failures_is_only_ever_asked_for_explicitly(client, db, fake):
+    """The button is the only thing that re-runs a failure. Loading a screen
+    must not, or a word that fails every time is re-billed on every visit."""
+    seed_profile(db)
+    client.post("/words", json={"lemma": "perro", "native_gloss": "dog"})
+    fake.calls.clear()
+
+    client.get("/enrich/status")
+    client.get("/words")
+
+    assert fake.calls == []
+
+
 def test_known_words_feed_the_i_plus_one_constraint(client, db, fake):
     """Sentences are only useful if built from words the learner already knows."""
     seed_profile(db)

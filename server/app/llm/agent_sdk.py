@@ -44,6 +44,42 @@ def _clean_translation(text: str) -> str:
     """Strip the quotes models wrap a bare answer in despite being told not to."""
     return text.strip().strip('"“”').strip()
 
+
+# HTTP statuses that mean "the API was busy, not that the request was wrong".
+# A rate limit or an overloaded model hits every worker at once, so without a
+# retry a burst of imports lands a whole batch of words in `failed`.
+_TRANSIENT_API_STATUSES = frozenset({408, 429, 500, 502, 503, 504, 529})
+_RETRY_BACKOFF_SECONDS = 5
+
+
+class _ResultError(ContentGenerationError):
+    """The CLI reported a failed turn, with the API status if it had one."""
+
+    def __init__(self, message: str, api_error_status: int | None):
+        super().__init__(message)
+        self.api_error_status = api_error_status
+
+    @property
+    def is_transient(self) -> bool:
+        return self.api_error_status in _TRANSIENT_API_STATUSES
+
+
+def _describe(result: ResultMessage) -> str:
+    """Why a failed result failed, in the most specific terms available.
+
+    Worth assembling by hand: for an API error mid-turn the CLI leaves
+    `subtype` as "success" and puts the reason in `api_error_status` and
+    `result`, so a message built from the subtype alone reads "Claude reported
+    an error: success" and tells nobody anything.
+    """
+    parts = [result.subtype]
+    if result.api_error_status:
+        parts.append(f"HTTP {result.api_error_status}")
+    parts.extend(result.errors or [])
+    if result.result:
+        parts.append(result.result[:300])
+    return "; ".join(part for part in parts if part)
+
 # The CLI is given a directory of its own. With tools disabled nothing should
 # ever touch it -- this is the second lock on the same door.
 _SANDBOX_CWD = Path(tempfile.gettempdir()) / "memorium-agent-cwd"
@@ -91,28 +127,55 @@ class AgentSDKGenerator:
         options = self._options(system_prompt, json_schema(model_cls), self.model_for(task))
 
         async def _run() -> dict[str, Any] | None:
+            """One CLI invocation.
+
+            The result frame and the process exit are separate events: a failed
+            turn is reported in the result *and* exits the CLI non-zero, and the
+            SDK then raises for the exit. Hold on to the result either way --
+            it is both the only place the real reason is written down and, when
+            the generation actually finished, a complete answer that a messy
+            exit is no reason to discard.
+            """
             result: ResultMessage | None = None
-            async for message in query(prompt=user_prompt, options=options):
-                if isinstance(message, ResultMessage):
-                    result = message
+            try:
+                async for message in query(prompt=user_prompt, options=options):
+                    if isinstance(message, ResultMessage):
+                        result = message
+            except Exception:
+                if result is None:
+                    raise
+                if not result.is_error:
+                    log.warning("%s: the CLI exited badly after a complete result", task)
             if result is None:
                 raise ContentGenerationError("Claude returned no result message")
             if result.is_error:
-                raise ContentGenerationError(
-                    f"Claude reported an error: {result.subtype} {result.errors or ''}".strip()
+                raise _ResultError(
+                    f"Claude reported an error: {_describe(result)}", result.api_error_status
                 )
             return result.structured_output
 
-        try:
-            payload = await asyncio.wait_for(_run(), timeout=self.timeout_seconds)
-        except TimeoutError as exc:
-            raise ContentGenerationError(
-                f"Claude did not respond within {self.timeout_seconds}s"
-            ) from exc
-        except ContentGenerationError:
-            raise
-        except Exception as exc:  # CLI missing, auth expired, transport died
-            raise ContentGenerationError(f"{type(exc).__name__}: {exc}") from exc
+        retried = False
+        while True:
+            try:
+                payload = await asyncio.wait_for(_run(), timeout=self.timeout_seconds)
+                break
+            except TimeoutError as exc:
+                raise ContentGenerationError(
+                    f"Claude did not respond within {self.timeout_seconds}s"
+                ) from exc
+            except _ResultError as exc:
+                # Retried here rather than by the caller: the enrichment queue
+                # marks a word `failed` and only a manual re-run picks it up
+                # again, which is a poor answer to a 429.
+                if retried or not exc.is_transient:
+                    raise
+                retried = True
+                log.warning("retrying %s after a transient failure: %s", task, exc)
+                await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+            except ContentGenerationError:
+                raise
+            except Exception as exc:  # CLI missing, auth expired, transport died
+                raise ContentGenerationError(f"{type(exc).__name__}: {exc}") from exc
 
         if payload is None:
             raise ContentGenerationError("Claude returned no structured output")

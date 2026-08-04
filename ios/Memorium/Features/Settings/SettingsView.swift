@@ -197,7 +197,10 @@ struct SettingsView: View {
                 if enrichment.failed > 0 {
                     Button("Retry \(enrichment.failed) failed") {
                         Task {
-                            try? await settings.makeClient().enrichAllPending()
+                            // Failures only -- the button counted those, and
+                            // re-running the pending ones as well would report
+                            // a number the learner never saw.
+                            _ = try? await settings.makeClient().retryFailedEnrichments()
                             await refresh()
                         }
                     }

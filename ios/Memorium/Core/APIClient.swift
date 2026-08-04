@@ -257,9 +257,15 @@ struct APIClient: Sendable {
         try decode(EnrichStatus.self, from: await request("GET", "enrich/status"))
     }
 
-    func enrichAllPending() async throws {
-        struct Body: Encodable { let allPending = true }
-        _ = try await request("POST", "enrich", body: try Self.encoder.encode(Body()))
+    /// Re-runs the words whose generation failed, and nothing else.
+    ///
+    /// Returns the queue as it stands afterwards, so the caller can show the
+    /// retry taking effect without a second round trip.
+    @discardableResult
+    func retryFailedEnrichments() async throws -> EnrichStatus {
+        struct Body: Encodable { let allFailed = true }
+        let data = try await request("POST", "enrich", body: try Self.encoder.encode(Body()))
+        return try decode(EnrichStatus.self, from: data)
     }
 
     func story() async throws -> StoryResponse {

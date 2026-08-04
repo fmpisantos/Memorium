@@ -13,6 +13,11 @@ struct DeckView: View {
     /// A failed delete, shown as an alert. Separate from `error`, which
     /// replaces the whole list when the deck itself cannot be loaded.
     @State private var actionError: String?
+    /// How many words Claude could not generate examples for. Read with the
+    /// deck so the retry button can appear beside the rows wearing the badge.
+    @State private var failedCount = 0
+    @State private var isRetrying = false
+    @State private var retryError: String?
 
     var body: some View {
         NavigationStack {
@@ -84,6 +89,18 @@ struct DeckView: View {
             } message: { detail in
                 Text(detail)
             }
+            .alert(
+                "Couldn't retry",
+                isPresented: Binding(
+                    get: { retryError != nil },
+                    set: { if !$0 { retryError = nil } }
+                ),
+                presenting: retryError
+            ) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { detail in
+                Text(detail)
+            }
             .refreshable { await load() }
             .task { await load() }
         }
@@ -91,6 +108,12 @@ struct DeckView: View {
 
     private var list: some View {
         List {
+            if failedCount > 0 {
+                Section {
+                    retryFailedRow
+                }
+            }
+
             Section {
                 ForEach(words) { word in
                     WordRow(word: word)
@@ -118,6 +141,25 @@ struct DeckView: View {
         }
     }
 
+    private var retryFailedRow: some View {
+        Button(action: retryFailed) {
+            HStack {
+                Label(
+                    "\(failedCount) word\(failedCount == 1 ? "" : "s") without examples",
+                    systemImage: "exclamationmark.icloud"
+                )
+                Spacer()
+                if isRetrying {
+                    ProgressView()
+                } else {
+                    Text("Retry").fontWeight(.semibold)
+                }
+            }
+        }
+        .disabled(isRetrying)
+        .foregroundStyle(.orange)
+    }
+
     private func load() async {
         guard settings.isConfigured else {
             error = "Set your server address and token in Settings."
@@ -125,11 +167,33 @@ struct DeckView: View {
         }
         isLoading = true
         defer { isLoading = false }
+        let client = settings.makeClient()
         do {
-            words = try await settings.makeClient().words(search: search.isEmpty ? nil : search)
+            words = try await client.words(search: search.isEmpty ? nil : search)
             error = nil
         } catch {
             self.error = error.localizedDescription
+        }
+        // Only ever read here. Generation is retried on a tap and nowhere
+        // else: a word that fails every time would otherwise be re-run --
+        // and re-billed -- on every visit to this screen.
+        failedCount = (try? await client.enrichmentStatus().failed) ?? failedCount
+    }
+
+    /// Re-runs the failed generations as one batch.
+    private func retryFailed() {
+        isRetrying = true
+        Task {
+            do {
+                // The queue answers with what it now holds, so the row goes
+                // away as soon as the words are back in it rather than at the
+                // next reload.
+                failedCount = try await settings.makeClient().retryFailedEnrichments().failed
+                await load()
+            } catch {
+                retryError = error.localizedDescription
+            }
+            isRetrying = false
         }
     }
 

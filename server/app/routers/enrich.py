@@ -18,6 +18,10 @@ router = APIRouter(tags=["content"], dependencies=[Depends(require_user)])
 class EnrichRequest(BaseModel):
     word_ids: list[str] | None = None
     all_pending: bool = False
+    # Failures only, for the app's "retry" button. Separate from `all_pending`
+    # so the button re-runs exactly the words it counted -- sweeping up pending
+    # ones as well would report a number the learner never saw.
+    all_failed: bool = False
 
 
 class EnrichStatus(BaseModel):
@@ -79,15 +83,12 @@ class StoryResponse(BaseModel):
 @router.post("/enrich", response_model=EnrichStatus)
 def enrich(payload: EnrichRequest, db: Session = Depends(get_db)):
     service = get_service()
-    if payload.all_pending:
+    if payload.all_pending or payload.all_failed:
+        wanted = [EnrichmentStatus.failed]
+        if payload.all_pending:
+            wanted.append(EnrichmentStatus.pending)
         ids = list(
-            db.scalars(
-                select(Word.id).where(
-                    Word.enrichment_status.in_(
-                        [EnrichmentStatus.pending, EnrichmentStatus.failed]
-                    )
-                )
-            )
+            db.scalars(select(Word.id).where(Word.enrichment_status.in_(wanted)))
         )
     else:
         ids = payload.word_ids or []
