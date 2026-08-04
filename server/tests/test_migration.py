@@ -9,8 +9,8 @@ import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from app.db import _add_lemma_keys, _add_review_log_practice, engine
-from app.models import Base, Card, ReviewLog, Word
+from app.db import _add_lemma_keys, _add_phrase_progress, _add_review_log_practice, engine
+from app.models import Base, Card, Phrase, ReviewLog, Word
 
 
 # The `words` table as the shipped version built it: unique on the lemma
@@ -167,3 +167,57 @@ def test_reviews_recorded_before_extra_rounds_existed_are_not_practice(
     _add_review_log_practice()  # Every start-up calls it.
 
     assert [entry.practice for entry in db.query(ReviewLog)] == [False]
+
+
+# --------------------------------------------------------------------------- #
+# Giving stored sentences somewhere to record how they went
+# --------------------------------------------------------------------------- #
+OLD_PHRASES_TABLE = """
+CREATE TABLE phrases (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    target TEXT NOT NULL,
+    native TEXT NOT NULL,
+    lemmas JSON NOT NULL,
+    source_lang VARCHAR(16) NOT NULL,
+    target_lang VARCHAR(16) NOT NULL,
+    created_at DATETIME NOT NULL,
+    served_count INTEGER NOT NULL,
+    last_served_at DATETIME
+)
+"""
+
+
+@pytest.fixture
+def phrases_without_progress():
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE phrases"))
+        conn.execute(text(OLD_PHRASES_TABLE))
+    yield
+    Base.metadata.drop_all(bind=engine)
+
+
+def test_sentences_written_before_answers_were_recorded_start_unanswered(
+    phrases_without_progress, db
+):
+    """Another backfill that is the truth rather than a guess: there was
+    nowhere to record an answer, so none of these has ever been answered."""
+    db.execute(
+        text(
+            "INSERT INTO phrases (id, target, native, lemmas, source_lang, target_lang,"
+            " created_at, served_count, last_served_at) VALUES ('p1', 'Frase.', 'Phrase.',"
+            " '[\"perro\"]', 'en-US', 'es-ES', '2024-01-01 00:00:00', 3,"
+            " '2024-01-02 00:00:00')"
+        )
+    )
+    db.commit()
+
+    _add_phrase_progress()
+    _add_phrase_progress()  # Every start-up calls it.
+
+    stored = db.query(Phrase).one()
+    assert (stored.attempts, stored.lapses) == (0, 0)
+    assert stored.mastered_at is None and stored.retry_after is None
+    # The history it did have is still there.
+    assert stored.served_count == 3

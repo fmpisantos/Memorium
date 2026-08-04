@@ -62,6 +62,10 @@ class EnrichmentService:
         self.generator: ContentGenerator = generator or AgentSDKGenerator(
             model=settings.claude_model,
             timeout_seconds=settings.claude_timeout_seconds,
+            bulk_budget_seconds=settings.claude_bulk_budget_seconds,
+            translate_chunk=settings.translate_chunk_size,
+            phrase_chunk=settings.phrase_chunk_size,
+            thinking=settings.claude_thinking,
             task_models=settings.task_models,
         )
         self.worker_count = workers if workers is not None else settings.enrichment_workers

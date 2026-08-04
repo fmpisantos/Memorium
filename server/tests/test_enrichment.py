@@ -455,7 +455,7 @@ def test_translate_batch_refuses_a_mismatched_count():
 
     generator = AgentSDKGenerator(model="x")
 
-    async def fake_generate(model_cls, system, user, task):
+    async def fake_generate(model_cls, system, user, task, timeout=None):
         return BatchTranslationOut(translations=["one", "two"])
 
     generator._generate = fake_generate

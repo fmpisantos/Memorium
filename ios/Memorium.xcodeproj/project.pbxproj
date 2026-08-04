@@ -29,6 +29,7 @@
 		6932B84ACB30E7AFF17B2147 /* words-01.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 2563818D1458709D305BD35A /* words-01.jpeg */; };
 		6B1116D0504E3C1753A769CD /* PhraseCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC83122F2A4197104B5AC5CE /* PhraseCardView.swift */; };
 		715AA328B9381183DAC51D9E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = E49A9896029507825674FBC2 /* GoogleSignIn */; };
+		723F6629D4A98BCD71B2CE2E /* PhraseStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 987FD17CB6ADB8A733BBAA99 /* PhraseStoreTests.swift */; };
 		79CB0D0D36E4F28343A5C6D3 /* TranslationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8745656C606CB8AEBF198EAE /* TranslationTests.swift */; };
 		7CA1672E2E6CA77E766D27CC /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 649A36544A0D65D5ED9A2FB2 /* Models.swift */; };
 		8724611C1CB21D5EE2EA7C95 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA3FB2ADF4AB9280EB7C8B67 /* AppSettings.swift */; };
@@ -86,6 +87,7 @@
 		89BD7B2406C1C16D1857E927 /* PracticeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeViewModel.swift; sourceTree = "<group>"; };
 		91BCC4BE03200AF2478187AD /* StudyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyViewModel.swift; sourceTree = "<group>"; };
 		95C1D00F95D2B36718FA349F /* TranslationDownloadRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationDownloadRow.swift; sourceTree = "<group>"; };
+		987FD17CB6ADB8A733BBAA99 /* PhraseStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseStoreTests.swift; sourceTree = "<group>"; };
 		988FF0189A443FCE2BE88586 /* WordListLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListLayout.swift; sourceTree = "<group>"; };
 		9DDF3031CE12936318BA1F32 /* AddWordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWordView.swift; sourceTree = "<group>"; };
 		AC83122F2A4197104B5AC5CE /* PhraseCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseCardView.swift; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 			children = (
 				CF3720DB1DA41B60CD429742 /* DraftTests.swift */,
 				E2017898C210FD1CC5BCBE0C /* GradingTests.swift */,
+				987FD17CB6ADB8A733BBAA99 /* PhraseStoreTests.swift */,
 				48B6E9A52AB7A8D4F374F092 /* PracticeTests.swift */,
 				3895762600BCC3D503311292 /* ScreenshotImportTests.swift */,
 				266BEEF1975FB814CC5EC44C /* SettingsTests.swift */,
@@ -375,6 +378,7 @@
 			files = (
 				2950DD1C95EBEA2048D22BDC /* DraftTests.swift in Sources */,
 				4ED09BA1787EF4B01ADBF628 /* GradingTests.swift in Sources */,
+				723F6629D4A98BCD71B2CE2E /* PhraseStoreTests.swift in Sources */,
 				D1546A2FBAD7074817300000 /* PracticeTests.swift in Sources */,
 				437A1672AD6DB73ECACFFC33 /* ScreenshotImportTests.swift in Sources */,
 				0998A86DBCCD369023544BFF /* SettingsTests.swift in Sources */,

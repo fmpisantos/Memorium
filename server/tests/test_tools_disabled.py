@@ -46,3 +46,14 @@ def test_structured_output_is_enforced():
 def test_generation_is_bounded():
     options = build_options()
     assert options.max_turns is not None and options.max_turns <= 3
+
+
+def test_thinking_is_off_unless_it_is_asked_for():
+    """Not a preference: with thinking on, six practice sentences cost 11,183
+    output tokens and 104 seconds against 400 tokens and 5 seconds without it.
+    Everything generated here is small and schema-bound."""
+    assert build_options().thinking == {"type": "disabled"}
+
+    thinker = AgentSDKGenerator(model="test-model", thinking=True)
+    options = thinker._options("system", json_schema(WordEnrichment))
+    assert options.thinking != {"type": "disabled"}

@@ -10,6 +10,10 @@ os.environ["MEMORIUM_DATABASE_URL"] = f"sqlite:///{Path(_tmpdir) / 'test.db'}"
 os.environ["MEMORIUM_DEFAULT_TIMEZONE"] = "UTC"
 os.environ["MEMORIUM_GOOGLE_CLIENT_ID"] = "test-client.apps.googleusercontent.com"
 os.environ["MEMORIUM_ALLOWED_EMAILS"] = "learner@example.com, Someone.Else@Example.com"
+# The background phrase writer is driven by hand in the tests that care about
+# it. Left running it would write sentences in the middle of unrelated tests,
+# against whatever generator happened to be installed at the time.
+os.environ["MEMORIUM_PHRASE_POOL_ENABLED"] = "false"
 
 import jwt  # noqa: E402
 import pytest  # noqa: E402
@@ -21,6 +25,7 @@ from app import auth  # noqa: E402
 from app.db import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.phrases import set_pool  # noqa: E402
 
 CLIENT_ID = os.environ["MEMORIUM_GOOGLE_CLIENT_ID"]
 ALLOWED_EMAIL = "learner@example.com"
@@ -81,6 +86,14 @@ def fresh_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def fresh_pool():
+    """A test that swaps the pool's settings must not leak them into the next."""
+    set_pool(None)
+    yield
+    set_pool(None)
 
 
 @pytest.fixture

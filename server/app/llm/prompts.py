@@ -285,7 +285,15 @@ def phrase_prompt(
     focus_words: list[str],
     source_lang: str,
     target_lang: str,
+    avoid: list[str] | None = None,
 ) -> str:
+    """A batch of sentences.
+
+    `avoid` carries the sentences already written for this learner in the
+    pieces of the batch that ran before this one. A set is written a few at a
+    time, and without showing each piece what came before it the third piece
+    writes the first piece again in slightly different words.
+    """
     known = ", ".join(known_words) if known_words else "(none yet)"
     focus = ", ".join(focus_words)
     focus_line = (
@@ -297,10 +305,21 @@ learner is closest to forgetting:
         if focus_words
         else ""
     )
+    written = "\n".join(f"- {sentence}" for sentence in avoid or [])
+    avoid_line = (
+        f"""
+Already written for this learner, in this same session. Write none of these
+again, and no near-variations on them -- a different subject, a different
+situation, a different shape of sentence:
+{written}
+"""
+        if written
+        else ""
+    )
     return f"""Target language: {target_lang}
 Source language: {source_lang}
 
 The vocabulary this learner knows, and the only content words you may use:
 {known}
-{focus_line}
+{focus_line}{avoid_line}
 Write {count} sentences."""

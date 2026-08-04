@@ -66,7 +66,10 @@ struct PracticeView: View {
     private func content(_ model: PracticeViewModel) -> some View {
         switch model.phase {
         case .loading:
-            ProgressView("Writing your phrases…")
+            // Sentences are written ahead of time on the server, so this is
+            // normally a fetch. It only stops being one on a first session,
+            // when there is nothing written yet.
+            ProgressView("Getting your phrases…")
 
         case .question, .revealed:
             if let phrase = model.current {

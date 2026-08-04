@@ -39,9 +39,19 @@ struct PhraseCardView: View {
 
     private var face: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Label(mode.title(source: sourceName, target: targetName), systemImage: mode.icon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            HStack {
+                Label(mode.title(source: sourceName, target: targetName), systemImage: mode.icon)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if phrase.isReturning {
+                    // A sentence only comes back because it was missed. Saying
+                    // so is the difference between "here it is again" and the
+                    // suspicion that the server is repeating itself.
+                    Label("Missed before", systemImage: "arrow.trianglehead.counterclockwise")
+                        .foregroundStyle(.orange)
+                }
+            }
+            .font(.caption.weight(.semibold))
 
             prompt
 

@@ -12,7 +12,8 @@ struct MemoriumApp: App {
     private let container: ModelContainer = {
         do {
             return try ModelContainer(
-                for: PendingGrade.self, CachedQueue.self, CachedPhrases.self
+                for: PendingGrade.self, CachedQueue.self, CachedPhrases.self,
+                PendingPhraseResult.self
             )
         } catch {
             // The cache is disposable; losing it is better than refusing to
@@ -20,6 +21,7 @@ struct MemoriumApp: App {
             // last resort rather than the first thing tried.
             return try! ModelContainer(
                 for: PendingGrade.self, CachedQueue.self, CachedPhrases.self,
+                PendingPhraseResult.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
         }

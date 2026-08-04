@@ -90,8 +90,15 @@ final class PracticeViewModel {
 
     // MARK: - Loading
 
-    /// Fetch a session. `refresh` asks the server for sentences it has not
-    /// written yet, rather than serving what it has stored.
+    /// Fetch a session.
+    ///
+    /// Results are pushed first. The server decides which sentences to send
+    /// back and it decides on what it knows: flushing afterwards would fetch a
+    /// set chosen as if last night's session never happened, and hand back the
+    /// sentences that were already answered.
+    ///
+    /// `refresh` asks for material never served before, rather than the
+    /// unfinished business that normally comes first.
     func load(refresh: Bool = false) async {
         phase = .loading
         guard settings.isConfigured else {
@@ -100,8 +107,9 @@ final class PracticeViewModel {
         }
 
         do {
-            let set = try await settings.makeClient()
-                .phrases(count: Self.sessionSize, refresh: refresh)
+            let client = settings.makeClient()
+            await store.flushResults(using: client)
+            let set = try await client.phrases(count: Self.sessionSize, refresh: refresh)
             isOffline = false
             store.cache(set)
             start(with: set.phrases)
@@ -194,6 +202,17 @@ final class PracticeViewModel {
         index += 1
         phase = index < phrases.count ? .question : .finished
         playPromptIfNeeded()
+        if phase == .finished { Task { await flushResults() } }
+    }
+
+    /// Tell the server how the session went.
+    ///
+    /// Nothing here is urgent enough to make the learner wait for it, and
+    /// nothing is lost if it fails: results sit on the device until they land,
+    /// and the next `load` tries again before asking for a new set.
+    private func flushResults() async {
+        guard settings.isConfigured else { return }
+        await store.flushResults(using: settings.makeClient())
     }
 
     private func clearAnswer() {
@@ -231,7 +250,12 @@ final class PracticeViewModel {
         diff = mode.showsWordDiff ? AnswerDiff.compare(expected: expected, given: given) : nil
 
         answered += 1
-        if verdict.verdict == .correct { correct += 1 }
+        let right = verdict.verdict == .correct
+        if right { correct += 1 }
+        // Recorded on the device first, and sent when the session ends. Only a
+        // right answer retires a sentence: "close" comes back, because close
+        // is what you get when you nearly know it.
+        store.record(phraseId: phrase.id, correct: right)
         reveal()
     }
 

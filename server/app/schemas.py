@@ -194,6 +194,10 @@ class PhraseOut(BaseModel):
     # The deck words it was built from. Shown after the answer, so a sentence
     # you could not finish points at the words it was made of.
     lemmas: list[str] = []
+    # How it has gone before. A sentence being asked again is one that was
+    # answered wrong, and the app says so rather than letting it look new.
+    attempts: int = 0
+    lapses: int = 0
 
 
 class PhraseSetOut(BaseModel):
@@ -207,3 +211,41 @@ class PhraseSetOut(BaseModel):
     target_lang: str
     source_lang: str
     phrases: list[PhraseOut]
+    # Unanswered sentences in store, this one included. The app shows nothing
+    # for it; it is here so a pool that has quietly stopped filling is visible
+    # from the client rather than only in the server log.
+    pool_depth: int = 0
+
+
+class PhraseResultIn(BaseModel):
+    """How one phrase went.
+
+    Client-generated id, for the same reason grades carry one: results are
+    written to an outbox on the device and flushed when the network allows, so
+    the same one can legitimately arrive twice.
+    """
+
+    client_result_id: str
+    phrase_id: str
+    correct: bool
+    answered_at: datetime | None = None
+
+
+class PhraseResultBatchIn(BaseModel):
+    results: Annotated[list[PhraseResultIn], Field(min_length=1, max_length=200)]
+
+
+class PhraseResultOut(BaseModel):
+    client_result_id: str
+    phrase_id: str
+    accepted: bool
+    duplicate: bool = False
+    # True once the sentence has been answered correctly: it leaves the
+    # rotation, and the app can drop it from its own copy.
+    mastered: bool = False
+    # When a sentence answered wrong may be asked again.
+    retry_after: datetime | None = None
+
+
+class PhraseResultBatchResult(BaseModel):
+    results: list[PhraseResultOut]

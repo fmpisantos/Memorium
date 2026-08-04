@@ -50,6 +50,25 @@ def phrases(client, **params):
     return response.json()
 
 
+def answer(client, phrase_ids, *, correct=True):
+    """Report how a set of phrases went, the way the app's outbox does."""
+    response = client.post(
+        "/practice/phrases/results",
+        json={
+            "results": [
+                {
+                    "client_result_id": str(uuid.uuid4()),
+                    "phrase_id": phrase_id,
+                    "correct": correct,
+                }
+                for phrase_id in phrase_ids
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["results"]
+
+
 # --------------------------------------------------------------------------- #
 def test_a_thin_deck_is_told_so_rather_than_served_nonsense(client, fake):
     """Three words cannot make a sentence, and inventing the rest would put
@@ -78,7 +97,9 @@ def test_phrases_are_built_from_the_deck_and_carry_both_sides(client, fake):
     assert set(written["known_words"]) <= {f"ord{index}" for index in range(6)}
 
 
-def test_the_words_closest_to_being_forgotten_are_named_as_the_focus(client, fake):
+def test_the_batch_is_built_around_named_words(client, fake):
+    """Which words a batch is built around is chosen here, not left to the
+    generator -- see `test_phrase_pool` for the rotation that chooses them."""
     stock_deck(client)
     phrases(client, count=2)
     written = next(call for call in fake.calls if "phrases" in call)
@@ -86,13 +107,21 @@ def test_the_words_closest_to_being_forgotten_are_named_as_the_focus(client, fak
     assert set(written["focus_words"]) <= set(written["known_words"])
 
 
-def test_a_second_session_is_new_material(client, fake):
-    """Serving the same sentences again would be recognition practice, which
-    is what the cards already do."""
+def test_an_unfinished_set_is_waiting_where_it_was_left(client, fake):
+    """A set opened and abandoned is still owed.
+
+    Replacing it with new material would mean a sentence could be served for
+    ever without ever being answered, which is the one thing this pool is meant
+    to stop.
+    """
     stock_deck(client)
-    first = {phrase["id"] for phrase in phrases(client, count=3)["phrases"]}
-    second = {phrase["id"] for phrase in phrases(client, count=3)["phrases"]}
-    assert first.isdisjoint(second)
+    first = [phrase["id"] for phrase in phrases(client, count=3)["phrases"]]
+    second = [phrase["id"] for phrase in phrases(client, count=3)["phrases"]]
+    assert set(first) == set(second)
+
+    answer(client, first, correct=True)
+    third = {phrase["id"] for phrase in phrases(client, count=3)["phrases"]}
+    assert third.isdisjoint(first), "answered ones are done; new material follows"
 
 
 def test_stored_phrases_are_served_without_generating_again(client, fake, db):
@@ -127,11 +156,31 @@ def test_an_empty_pool_and_a_dead_generator_is_an_honest_failure(client, fake):
     assert "token expired" in response.json()["detail"]
 
 
-def test_refresh_writes_new_sentences_even_with_a_full_pool(client, fake):
+def test_refresh_serves_material_never_seen_before(client, fake):
+    """"Write me new ones" means sentences this learner has not been shown,
+    which the pool usually already holds -- so it is a request that does not
+    have to be paid for with a two-minute wait."""
     stock_deck(client)
     stored = {phrase["id"] for phrase in phrases(client, count=4)["phrases"]}
+
+    fake.calls.clear()
     fresh = {phrase["id"] for phrase in phrases(client, count=4, refresh=True)["phrases"]}
     assert stored.isdisjoint(fresh)
+    assert not any("phrases" in call for call in fake.calls), "the pool already had them"
+
+
+def test_a_session_is_served_without_waiting_on_a_generation(client, fake, db):
+    """The pool exists so that opening the screen is a request, not a wait."""
+    stock_deck(client)
+    phrases(client, count=2)  # cold start: this one does write
+
+    fake.calls.clear()
+    for _ in range(4):
+        served = phrases(client, count=2)["phrases"]
+        answer(client, [phrase["id"] for phrase in served], correct=True)
+    assert not any("phrases" in call for call in fake.calls), (
+        "the background writer fills the pool; serving must not"
+    )
 
 
 def test_a_repeated_sentence_is_not_stored_twice(client, fake, db):

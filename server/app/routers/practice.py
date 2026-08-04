@@ -6,6 +6,11 @@ sentence while you are trying to say something. This is that second skill: hear
 a sentence and write it down, or read it in one language and say it in the
 other, with every content word drawn from vocabulary already in the deck.
 
+The sentences themselves are written ahead of time and kept; `app.phrases` owns
+that pool and the rotation that decides which words go into it. This is the
+serving end: hand out what is stored, take back how it went, and wake the
+writer on the way out.
+
 Nothing here touches the schedule. Cards carry the deck's memory; a phrase
 answered well or badly moves nothing, so practice is free.
 """
@@ -15,189 +20,26 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import phrases as pool_module
 from app.db import get_db
 from app.deps import get_profile, require_user
-from app.enrichment import get_service
 from app.llm.base import ContentGenerationError
-from app.models import Card, Phrase, Profile, Word, deck_key, utcnow
-from app.schemas import PhraseOut, PhraseSetOut
+from app.models import Phrase, PhraseAttempt, Profile, utcnow
+from app.phrases import BATCH_SIZE, MIN_KNOWN_WORDS, get_pool
+from app.schemas import (
+    PhraseOut,
+    PhraseResultBatchIn,
+    PhraseResultBatchResult,
+    PhraseResultOut,
+    PhraseSetOut,
+)
 
 log = logging.getLogger("memorium.practice")
 
 router = APIRouter(tags=["practice"], dependencies=[Depends(require_user)])
-
-# Below this there is nothing to build a sentence out of, and the honest answer
-# is to say so rather than to hand back four sentences about a dog.
-MIN_KNOWN_WORDS = 5
-
-# How much vocabulary to put in front of the generator. Enough to write varied
-# sentences; not so much that the prompt is mostly word list.
-VOCABULARY_SAMPLE = 60
-
-# Words the schedule says are closest to being forgotten. Naming them keeps a
-# session pointed at the words that need the work, instead of the handful the
-# generator happens to find easiest to use.
-FOCUS_WORDS = 8
-
-# Sentences are written a batch at a time, not a session at a time. Writing
-# twelve costs about what writing six does and leaves the next session ready
-# to start on the spot -- and ready to happen at all without a connection.
-BATCH_SIZE = 12
-
-
-# --------------------------------------------------------------------------- #
-# What counts as vocabulary
-# --------------------------------------------------------------------------- #
-def _known_lemmas(db: Session, limit: int = VOCABULARY_SAMPLE) -> list[str]:
-    """Words to build sentences from, best-known first.
-
-    Reviewed words come first: "known" should mean the learner has met it, not
-    that it sits unstudied in the deck. But a deck built by importing a word
-    list is a deck of words met somewhere else, so the rest of it tops up the
-    sample rather than being treated as unknown -- otherwise a fresh import
-    can't practise at all.
-    """
-    reviewed = list(
-        db.scalars(
-            select(Word.lemma)
-            .join(Card, Card.word_id == Word.id)
-            .where(Card.reps > 0)
-            .group_by(Word.id)
-            .order_by(func.max(Card.stability).desc().nullslast())
-            .limit(limit)
-        )
-    )
-    if len(reviewed) >= limit:
-        return reviewed
-    rest = list(
-        db.scalars(
-            select(Word.lemma)
-            .where(Word.lemma.notin_(reviewed))
-            .order_by(Word.created_at.asc())
-            .limit(limit - len(reviewed))
-        )
-    )
-    return reviewed + rest
-
-
-def _focus_lemmas(db: Session, limit: int = FOCUS_WORDS) -> list[str]:
-    """Reviewed words with the nearest due date -- the ones going stale."""
-    return list(
-        db.scalars(
-            select(Word.lemma)
-            .join(Card, Card.word_id == Word.id)
-            .where(Card.reps > 0)
-            .group_by(Word.id)
-            .order_by(func.min(Card.due).asc())
-            .limit(limit)
-        )
-    )
-
-
-# --------------------------------------------------------------------------- #
-# The stored pool
-# --------------------------------------------------------------------------- #
-def _still_in_deck(phrase: Phrase, deck: set[str]) -> bool:
-    """Has this sentence outlived the words it was made of?
-
-    One surviving word is enough. Requiring all of them would retire good
-    sentences over a single deleted word, and a phrase that records none of
-    its vocabulary -- the generator declined to say -- is kept rather than
-    quietly thrown away.
-    """
-    lemmas = [str(lemma) for lemma in (phrase.lemmas or [])]
-    return not lemmas or any(deck_key(lemma) in deck for lemma in lemmas)
-
-
-def _pool(
-    db: Session,
-    profile: Profile,
-    limit: int,
-    *,
-    unseen_only: bool,
-    exclude: set[str] | None = None,
-) -> list[Phrase]:
-    """Stored phrases for this language pair, least practised first."""
-    if limit <= 0:
-        return []
-    query = select(Phrase).where(
-        Phrase.target_lang == profile.target_lang,
-        Phrase.source_lang == profile.source_lang,
-    )
-    if unseen_only:
-        query = query.where(Phrase.last_served_at.is_(None))
-    if exclude:
-        query = query.where(Phrase.id.notin_(exclude))
-
-    # Over-fetch, because some of what comes back may have outlived its words.
-    candidates = list(
-        db.scalars(
-            query.order_by(
-                Phrase.last_served_at.asc().nullsfirst(), Phrase.created_at.asc()
-            ).limit(limit * 3)
-        )
-    )
-    deck = set(db.scalars(select(Word.lemma_key)))
-    return [phrase for phrase in candidates if _still_in_deck(phrase, deck)][:limit]
-
-
-async def _generate(
-    db: Session, profile: Profile, count: int, known: list[str], focus: list[str]
-) -> list[Phrase]:
-    """Write `count` new sentences and keep them.
-
-    Raises `ContentGenerationError`, which the caller treats as "serve what is
-    already stored" rather than as a failed session.
-    """
-    result = await get_service().generator.practice_phrases(
-        count=count,
-        known_words=known,
-        focus_words=focus,
-        source_lang=profile.source_lang,
-        target_lang=profile.target_lang,
-    )
-
-    # A sentence already in the pool is not practice, it is the same card
-    # again. Checked case-insensitively and against this batch as well as the
-    # store, since a generator asked twice in a day repeats itself.
-    seen = {
-        target.casefold()
-        for target in db.scalars(
-            select(Phrase.target).where(Phrase.target_lang == profile.target_lang)
-        )
-    }
-    fresh: list[Phrase] = []
-    for phrase in result.phrases:
-        target = phrase.target.strip()
-        native = phrase.native.strip()
-        if not target or not native or target.casefold() in seen:
-            continue
-        seen.add(target.casefold())
-        fresh.append(
-            Phrase(
-                target=target,
-                native=native,
-                lemmas=[use.strip() for use in phrase.uses if use.strip()],
-                source_lang=profile.source_lang,
-                target_lang=profile.target_lang,
-            )
-        )
-
-    db.add_all(fresh)
-    db.commit()
-    return fresh
-
-
-def _mark_served(db: Session, phrases: list[Phrase]) -> None:
-    now = utcnow()
-    for phrase in phrases:
-        phrase.served_count += 1
-        phrase.last_served_at = now
-    db.add_all(phrases)
-    db.commit()
 
 
 # --------------------------------------------------------------------------- #
@@ -207,52 +49,71 @@ async def practice_phrases(
     profile: Profile = Depends(get_profile),
     count: int = Query(default=8, ge=1, le=20),
     refresh: bool = Query(
-        default=False, description="Skip the stored pool and write new sentences."
+        default=False, description="Only sentences that have never been served."
     ),
 ):
     """A session's worth of sentences.
 
-    Unpractised sentences are served first and new ones written when the pool
-    runs short, so a session is new material by default. When Claude cannot be
-    reached the pool answers instead: a sentence practised a week ago is a
-    great deal better than an error message, and this is the feature most
-    likely to be wanted on a train.
+    Served from the pool, which the background writer keeps stocked -- so this
+    normally returns as fast as any other request rather than waiting on a
+    generation. Sentences you have not answered yet come first, then the ones
+    you got wrong and have sat out their cooling-off period; a sentence
+    answered correctly does not come back.
+
+    Only an empty pool generates while the learner waits, because a first
+    session has to come from somewhere. When Claude cannot be reached at all
+    the pool answers instead: a sentence practised last week is a great deal
+    better than an error message, and this is the feature most likely to be
+    wanted on a train.
     """
-    known = _known_lemmas(db)
-    if len(known) < MIN_KNOWN_WORDS:
+    if len(pool_module.known_lemmas(db)) < MIN_KNOWN_WORDS:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "Phrases are built from words you already know, and there aren't "
             f"enough in the deck yet — add at least {MIN_KNOWN_WORDS}.",
         )
 
-    phrases = [] if refresh else _pool(db, profile, count, unseen_only=True)
+    pool = get_pool()
+    served = pool_module.available(db, profile, count, unseen_only=refresh)
 
     failure: Exception | None = None
-    if len(phrases) < count:
-        shortfall = count - len(phrases)
+    # Writing here is the exception, not the rule: an empty pool (a first
+    # session, or one held up behind a long import) and an explicit ask for
+    # material never seen before.
+    if len(served) < count and (refresh or not served):
+        shortfall = count - len(served)
         try:
-            written = await _generate(
-                db, profile, max(shortfall, BATCH_SIZE), known, _focus_lemmas(db)
-            )
+            written = await pool.write_now(db, profile, max(shortfall, BATCH_SIZE))
             # The rest of the batch stays unserved for next time.
-            phrases += written[:shortfall]
+            served += written[:shortfall]
         except ContentGenerationError as exc:
             log.warning("phrase generation failed: %s", exc)
             failure = exc
 
-    if len(phrases) < count:
-        # Repeats, rather than a short session. Practising a sentence twice is
-        # the ordinary way this works once the pool has been round once.
-        phrases += _pool(
+    if len(served) < count:
+        # Sentences still cooling off after a wrong answer, rather than a short
+        # session. Being asked one again sooner than planned is a small price
+        # against being handed four cards and told that is the session.
+        served += pool_module.available(
             db,
             profile,
-            count - len(phrases),
-            unseen_only=False,
-            exclude={phrase.id for phrase in phrases},
+            count - len(served),
+            ignore_cooldown=True,
+            exclude={phrase.id for phrase in served},
         )
 
-    if not phrases:
+    if len(served) < count:
+        # Everything left is already answered. Repeats beat an empty screen.
+        served += pool_module.available(
+            db,
+            profile,
+            count - len(served),
+            ignore_cooldown=True,
+            include_mastered=True,
+            exclude={phrase.id for phrase in served},
+        )
+
+    if not served:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             f"Couldn't write any phrases: {failure}"
@@ -260,9 +121,97 @@ async def practice_phrases(
             else "Couldn't write any phrases.",
         )
 
-    _mark_served(db, phrases)
+    pool_module.mark_served(db, served)
+    # Whatever was just handed out has left the pool for as long as it takes to
+    # answer it, so the batch replacing it is written now -- while the learner
+    # is still working through this one -- rather than at the next tick.
+    pool.request_top_up()
+
     return PhraseSetOut(
         target_lang=profile.target_lang,
         source_lang=profile.source_lang,
-        phrases=[PhraseOut.model_validate(phrase) for phrase in phrases],
+        phrases=[PhraseOut.model_validate(phrase) for phrase in served],
+        pool_depth=pool_module.depth(db, profile),
     )
+
+
+@router.post("/practice/phrases/results", response_model=PhraseResultBatchResult)
+def phrase_results(
+    payload: PhraseResultBatchIn,
+    db: Session = Depends(get_db),
+    profile: Profile = Depends(get_profile),
+):
+    """Record how a set of phrases went. Safe to replay.
+
+    A sentence answered correctly is done and drops out of the rotation; one
+    answered wrong stays in it, and comes back after a cooling-off period.
+    Nothing here touches the schedule -- see the note at the top of the module.
+
+    Idempotency is keyed on the client-generated result id, so an outbox flush
+    replayed after a flaky connection reports the sentence's current state
+    instead of counting a second attempt against it.
+    """
+    ids = [item.client_result_id for item in payload.results]
+    seen = set(
+        db.scalars(
+            select(PhraseAttempt.client_result_id).where(
+                PhraseAttempt.client_result_id.in_(ids)
+            )
+        ).all()
+    )
+
+    results: list[PhraseResultOut] = []
+    for item in payload.results:
+        phrase = db.get(Phrase, item.phrase_id)
+        if phrase is None:
+            # Its words left the deck, or it was written for another language
+            # pair and cleared out. Accepting nothing is the honest answer, and
+            # tells the app to stop retrying it.
+            results.append(
+                PhraseResultOut(
+                    client_result_id=item.client_result_id,
+                    phrase_id=item.phrase_id,
+                    accepted=False,
+                )
+            )
+            continue
+
+        if item.client_result_id in seen:
+            results.append(
+                PhraseResultOut(
+                    client_result_id=item.client_result_id,
+                    phrase_id=phrase.id,
+                    accepted=True,
+                    duplicate=True,
+                    mastered=phrase.mastered_at is not None,
+                    retry_after=phrase.retry_after,
+                )
+            )
+            continue
+
+        answered_at = item.answered_at or utcnow()
+        pool_module.record_result(db, phrase, item.correct, answered_at=answered_at)
+        db.add(
+            PhraseAttempt(
+                phrase_id=phrase.id,
+                correct=item.correct,
+                answered_at=answered_at,
+                client_result_id=item.client_result_id,
+            )
+        )
+        seen.add(item.client_result_id)
+        results.append(
+            PhraseResultOut(
+                client_result_id=item.client_result_id,
+                phrase_id=phrase.id,
+                accepted=True,
+                mastered=phrase.mastered_at is not None,
+                retry_after=phrase.retry_after,
+            )
+        )
+
+    db.commit()
+    # Mastered sentences have left the pool for good, so this is where it
+    # actually gets shorter -- and where the writer is most worth waking.
+    get_pool().request_top_up()
+    return PhraseResultBatchResult(results=results)

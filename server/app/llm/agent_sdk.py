@@ -17,6 +17,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import tempfile
+import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
@@ -28,6 +30,7 @@ from app.llm.base import (
     AnswerJudgement,
     BatchTranslationOut,
     ContentGenerationError,
+    GeneratedPhrase,
     GradeKind,
     MnemonicOut,
     PhraseSet,
@@ -40,6 +43,8 @@ from app.llm.base import (
 log = logging.getLogger("memorium.llm")
 
 T = TypeVar("T", bound=BaseModel)
+PieceT = TypeVar("PieceT")  # one piece of a bulk request
+ResultT = TypeVar("ResultT")  # ...and what running that piece returns
 
 
 def _clean_translation(text: str) -> str:
@@ -87,12 +92,58 @@ def _describe(result: ResultMessage) -> str:
 _SANDBOX_CWD = Path(tempfile.gettempdir()) / "memorium-agent-cwd"
 
 
+# --------------------------------------------------------------------------- #
+# Bulk work
+#
+# Nothing is ever asked of Claude in one go. A hundred words to translate or a
+# dozen sentences to write is split into pieces and the pieces are run one
+# after another, because a single call carrying the lot fails in the way that
+# costs the most: everything at once. The reasons compound.
+#
+# * One long answer is one thing to get wrong. A batch translation is paired
+#   back to its words by position, so a model that skips an entry mislabels
+#   every word after it -- and the only safe response is to throw the whole
+#   answer away. Twenty words at a time means a bad piece costs twenty words,
+#   not five hundred.
+# * A piece that fails is retried, dropped, or timed out on its own, and the
+#   rest of the batch still arrives. Whatever came back is kept.
+# * Long generations are where the CLI stalls and where the model starts
+#   repeating itself. Twelve sentences written in one breath are twelve
+#   variations on the first three.
+#
+# One at a time, not all at once in parallel: each call forks a CLI
+# subprocess, and a Raspberry Pi running four of those has stopped serving the
+# app. The cost is wall-clock, which `claude_bulk_budget_seconds` bounds.
+# --------------------------------------------------------------------------- #
+
+# Defaults for how much goes into one call, overridable per deployment through
+# `config`. Measured against a real deck: twenty words cost 6 seconds to
+# translate where one costs 4, so splitting an import barely shows. Phrases are
+# the opposite -- a call costs about 100 seconds whether you ask it for four
+# sentences or twelve, because the time goes on working within the vocabulary
+# rather than on writing -- so a piece here is a piece of the learner's waiting.
+TRANSLATE_CHUNK = 20
+PHRASE_CHUNK = 6
+
+# Below this there is not enough of the budget left to be worth spawning a CLI
+# for -- it would only time out mid-answer and bill for it.
+_MIN_PIECE_SECONDS = 15
+
+
+def _split(items: list[PieceT], size: int) -> list[list[PieceT]]:
+    return [items[start : start + size] for start in range(0, len(items), size)]
+
+
 class AgentSDKGenerator:
     def __init__(
         self,
         model: str,
         timeout_seconds: int = 180,
         task_models: dict[str, str] | None = None,
+        bulk_budget_seconds: int = 200,
+        translate_chunk: int = TRANSLATE_CHUNK,
+        phrase_chunk: int = PHRASE_CHUNK,
+        thinking: bool = False,
     ):
         self.model = model
         # Per-task overrides, keyed by the task names in `config.task_models`.
@@ -100,6 +151,15 @@ class AgentSDKGenerator:
         # care about the split can keep passing a single name.
         self.task_models = task_models or {}
         self.timeout_seconds = timeout_seconds
+        # For a whole split-up batch, where `timeout_seconds` governs one piece
+        # of it. See the note on bulk work above.
+        self.bulk_budget_seconds = bulk_budget_seconds
+        # A chunk of zero or less would mean no pieces at all, and a batch that
+        # silently returned nothing. One item per call is the smallest split
+        # that still does the work.
+        self.translate_chunk = max(1, translate_chunk)
+        self.phrase_chunk = max(1, phrase_chunk)
+        self.thinking = thinking
         _SANDBOX_CWD.mkdir(parents=True, exist_ok=True)
 
     def model_for(self, task: str) -> str:
@@ -113,6 +173,10 @@ class AgentSDKGenerator:
             model=model or self.model,
             system_prompt=system_prompt,
             output_format=schema,
+            # Thinking is what makes a phrase call cost a hundred seconds
+            # instead of five -- see `config.claude_thinking`. Left to the
+            # SDK's own default when it is switched back on.
+            **({} if self.thinking else {"thinking": {"type": "disabled"}}),
             # No tools. Not "no dangerous tools" -- none at all.
             tools=[],
             allowed_tools=[],
@@ -124,9 +188,18 @@ class AgentSDKGenerator:
         )
 
     async def _generate(
-        self, model_cls: type[T], system_prompt: str, user_prompt: str, task: str
+        self,
+        model_cls: type[T],
+        system_prompt: str,
+        user_prompt: str,
+        task: str,
+        timeout: float | None = None,
     ) -> T:
+        """One generation. `timeout` overrides the per-call ceiling downwards,
+        which is how a piece of a bulk request is held to what is left of the
+        batch's budget rather than to the full call timeout."""
         options = self._options(system_prompt, json_schema(model_cls), self.model_for(task))
+        limit = self.timeout_seconds if timeout is None else min(timeout, self.timeout_seconds)
 
         async def _run() -> dict[str, Any] | None:
             """One CLI invocation.
@@ -156,14 +229,21 @@ class AgentSDKGenerator:
                 )
             return result.structured_output
 
+        # A deadline rather than a per-attempt timeout, so the retry below
+        # spends what is left of the call's time instead of being granted the
+        # whole of it a second time -- which is what would let one piece of a
+        # bulk request run past the budget for all of it.
+        deadline = time.monotonic() + limit
         retried = False
         while True:
             try:
-                payload = await asyncio.wait_for(_run(), timeout=self.timeout_seconds)
+                payload = await asyncio.wait_for(
+                    _run(), timeout=max(deadline - time.monotonic(), 0)
+                )
                 break
             except TimeoutError as exc:
                 raise ContentGenerationError(
-                    f"Claude did not respond within {self.timeout_seconds}s"
+                    f"Claude did not respond within {limit:.0f}s"
                 ) from exc
             except _ResultError as exc:
                 # Retried here rather than by the caller: the enrichment queue
@@ -186,6 +266,62 @@ class AgentSDKGenerator:
             return model_cls.model_validate(payload)
         except ValidationError as exc:
             raise ContentGenerationError(f"Response did not match schema: {exc}") from exc
+
+    # ----------------------------------------------------------------- #
+    # The bulk pipeline
+    # ----------------------------------------------------------------- #
+    async def _pipeline(
+        self,
+        pieces: list[PieceT],
+        run: Callable[[PieceT, float], Awaitable[ResultT]],
+        *,
+        task: str,
+    ) -> list[ResultT | None]:
+        """Run the pieces of a split-up bulk request, one at a time.
+
+        Each piece gets whatever is left of the batch's budget, capped at the
+        per-call timeout, and is handed that as its deadline. A piece that
+        fails becomes `None` in the results and the next one still runs: the
+        point of splitting the work up is that one bad answer costs one piece
+        of the batch rather than all of it. Callers decide what a hole means --
+        an untranslated word, or simply a shorter set of sentences.
+
+        Every piece failing is a different matter, and raises: that is not a
+        partial result, it is Claude being unreachable, and the callers above
+        have real fallbacks for it (the stored phrase pool, a 503 the app
+        answers by translating one word at a time).
+        """
+        deadline = time.monotonic() + self.bulk_budget_seconds
+        results: list[ResultT | None] = []
+        first_failure: Exception | None = None
+
+        for index, piece in enumerate(pieces):
+            remaining = deadline - time.monotonic()
+            # The first piece always runs. Coming back with nothing because a
+            # clock said so would be a worse answer than a slow one.
+            if index and remaining < _MIN_PIECE_SECONDS:
+                log.warning(
+                    "%s: out of time after %d of %d pieces; the rest are unanswered",
+                    task,
+                    index,
+                    len(pieces),
+                )
+                results.extend([None] * (len(pieces) - index))
+                break
+            try:
+                results.append(await run(piece, remaining))
+            except ContentGenerationError as exc:
+                log.warning(
+                    "%s: piece %d of %d failed: %s", task, index + 1, len(pieces), exc
+                )
+                first_failure = first_failure or exc
+                results.append(None)
+
+        if pieces and all(result is None for result in results):
+            raise ContentGenerationError(
+                str(first_failure) if first_failure else "Claude answered none of the batch"
+            )
+        return results
 
     # ----------------------------------------------------------------- #
     async def enrich_word(
@@ -234,20 +370,65 @@ class AgentSDKGenerator:
         source_lang: str,
         target_lang: str,
     ) -> PhraseSet:
-        result = await self._generate(
-            PhraseSet,
-            prompts.PHRASE_SYSTEM,
-            prompts.phrase_prompt(count, known_words, focus_words, source_lang, target_lang),
-            task="phrase",
-        )
-        # A sentence missing either side is unusable: the learner is asked to
-        # produce one from the other, and both directions are offered.
-        result.phrases = [
-            phrase
-            for phrase in result.phrases
-            if phrase.target.strip() and phrase.native.strip()
+        """A set of sentences, written a few at a time.
+
+        Splitting this one is not only about failure. A batch written in a
+        single pass is a batch written in one idea -- ten sentences about
+        needing things, or every one of them starting "I". Each piece here is
+        shown what the pieces before it produced and told to write something
+        else, which is a better lever on variety than any amount of asking for
+        it in the system prompt.
+        """
+        if count <= 0:
+            return PhraseSet(phrases=[])
+
+        chunk = self.phrase_chunk
+        sizes = [min(chunk, count - start) for start in range(0, count, chunk)]
+        # The words closest to being forgotten are dealt out between the pieces
+        # rather than repeated to each. Naming all eight every time would have
+        # every piece reaching for the same two.
+        pieces = [
+            (size, focus_words[index :: len(sizes)]) for index, size in enumerate(sizes)
         ]
-        return result
+
+        written: list[GeneratedPhrase] = []
+        seen: set[str] = set()
+
+        async def run(piece: tuple[int, list[str]], remaining: float) -> int:
+            size, focus = piece
+            result = await self._generate(
+                PhraseSet,
+                prompts.PHRASE_SYSTEM,
+                prompts.phrase_prompt(
+                    size,
+                    known_words,
+                    focus,
+                    source_lang,
+                    target_lang,
+                    # Sequential, so this is everything the earlier pieces
+                    # actually produced -- not a guess at it.
+                    avoid=[phrase.target for phrase in written],
+                ),
+                task="phrase",
+                timeout=remaining,
+            )
+            fresh = 0
+            for phrase in result.phrases:
+                target = phrase.target.strip()
+                # A sentence missing either side is unusable: the learner is
+                # asked to produce one from the other, and both directions are
+                # offered. A repeat of one already written is not practice.
+                if not target or not phrase.native.strip():
+                    continue
+                if target.casefold() in seen:
+                    continue
+                seen.add(target.casefold())
+                written.append(phrase)
+                fresh += 1
+            return fresh
+
+        await self._pipeline(pieces, run, task="phrase")
+        return PhraseSet(phrases=written[:count])
 
     async def mnemonic(
         self, lemma: str, native_gloss: str, source_lang: str, target_lang: str
@@ -287,28 +468,42 @@ class AgentSDKGenerator:
         if not texts:
             return BatchTranslationOut(translations=[])
 
-        result = await self._generate(
-            BatchTranslationOut,
-            prompts.BATCH_TRANSLATE_SYSTEM,
-            prompts.batch_translate_prompt(texts, into, source_lang, target_lang),
-            # The same task as a single translation, so MEMORIUM_TRANSLATE_MODEL
-            # governs both rather than the batch quietly running on a different
-            # model to the one-at-a-time path.
-            task="translate",
-        )
-        translations = [_clean_translation(text) for text in result.translations]
+        pieces = _split(texts, self.translate_chunk)
 
-        # Length is the one thing the caller cannot recover from, because it
-        # pairs translations back to words by position. A model that returned
-        # the wrong number of them has mislabelled an unknown subset, so the
-        # whole batch is discarded rather than written into the deck wrong --
-        # the caller falls back to translating one at a time.
-        if len(translations) != len(texts):
-            raise ContentGenerationError(
-                f"Asked for {len(texts)} translations and got {len(translations)}"
+        async def run(piece: list[str], remaining: float) -> list[str]:
+            result = await self._generate(
+                BatchTranslationOut,
+                prompts.BATCH_TRANSLATE_SYSTEM,
+                prompts.batch_translate_prompt(piece, into, source_lang, target_lang),
+                # The same task as a single translation, so
+                # MEMORIUM_TRANSLATE_MODEL governs both rather than the batch
+                # quietly running on a different model to the one-at-a-time path.
+                task="translate",
+                timeout=remaining,
             )
-        result.translations = translations
-        return result
+            translations = [_clean_translation(text) for text in result.translations]
+
+            # Length is the one thing the caller cannot recover from, because
+            # it pairs translations back to words by position. A model that
+            # returned the wrong number of them has mislabelled an unknown
+            # subset, so this piece is discarded rather than written into the
+            # deck wrong. Splitting the batch is what makes that affordable:
+            # the words in the other pieces are unaffected.
+            if len(translations) != len(piece):
+                raise ContentGenerationError(
+                    f"Asked for {len(piece)} translations and got {len(translations)}"
+                )
+            return translations
+
+        answers = await self._pipeline(pieces, run, task="translate")
+
+        # Position is the contract, so a piece that failed leaves its words
+        # blank rather than shortening the list. The endpoint turns a blank
+        # into a null, which the app shows as a word to fill in by hand.
+        translations: list[str] = []
+        for piece, answer in zip(pieces, answers):
+            translations.extend(answer if answer is not None else [""] * len(piece))
+        return BatchTranslationOut(translations=translations)
 
     async def daily_story(
         self, lemmas: list[str], source_lang: str, target_lang: str

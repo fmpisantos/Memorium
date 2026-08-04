@@ -77,11 +77,39 @@ struct APIClient: Sendable {
         return decoder
     }()
 
+    /// Enough for a deck request that only reads the database.
+    private static let quickTimeout: TimeInterval = 30
+
+    /// Enough for anything that waits on Claude.
+    ///
+    /// These calls are not slow in the way a big download is slow: the server
+    /// spawns a CLI subprocess per generation, and a batch of sentences takes
+    /// well over a minute of it. Thirty seconds is not a cautious limit for
+    /// them, it is one that can never be met -- and giving up early is worse
+    /// than waiting, because the server treats the dropped connection as a
+    /// cancelled request and throws away the work it had already done. Set
+    /// above the server's own ceiling (`MEMORIUM_CLAUDE_TIMEOUT_SECONDS`,
+    /// 180s) so the server is always the one that decides to stop.
+    private static let generationTimeout: TimeInterval = 240
+
+    /// A session of our own rather than `URLSession.shared`, whose
+    /// configuration caps a request at 60 seconds regardless of what the
+    /// request itself asks for. The ceiling here is the longest any single
+    /// call is allowed to take; each request still sets its own, shorter,
+    /// `timeoutInterval` underneath it.
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = generationTimeout
+        configuration.timeoutIntervalForResource = generationTimeout
+        return URLSession(configuration: configuration)
+    }()
+
     private func request(
         _ method: String,
         _ path: String,
         query: [URLQueryItem] = [],
-        body: Data? = nil
+        body: Data? = nil,
+        timeout: TimeInterval = quickTimeout
     ) async throws -> Data {
         let bearer = try await token()
 
@@ -96,7 +124,7 @@ struct APIClient: Sendable {
         if !bearer.isEmpty {
             request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
-        request.timeoutInterval = 30
+        request.timeoutInterval = timeout
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -105,7 +133,7 @@ struct APIClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await Self.session.data(for: request)
         } catch {
             throw APIError.offline
         }
@@ -187,7 +215,9 @@ struct APIClient: Sendable {
     }
 
     func mnemonic(wordId: String) async throws -> String {
-        let data = try await request("POST", "words/\(wordId)/mnemonic")
+        let data = try await request(
+            "POST", "words/\(wordId)/mnemonic", timeout: Self.generationTimeout
+        )
         return try decode([String: String].self, from: data)["mnemonic"] ?? ""
     }
 
@@ -219,29 +249,51 @@ struct APIClient: Sendable {
         let body = try Self.encoder.encode(
             GradeAnswerRequest(prompt: prompt, expected: expected, given: given, kind: kind)
         )
-        return try decode(GradeAnswerResponse.self, from: await request("POST", "grade", body: body))
+        return try decode(
+            GradeAnswerResponse.self,
+            from: await request("POST", "grade", body: body, timeout: Self.generationTimeout)
+        )
     }
 
     // MARK: - Phrase practice
 
     /// A session's worth of sentences built from words already in the deck.
     ///
-    /// `refresh` asks the server to write new ones rather than serving what it
-    /// has stored. Everything it holds is a fallback when Claude can't be
-    /// reached, so a session is still possible on a bad connection.
+    /// Served from a pool the server writes in the background, so this is an
+    /// ordinary request rather than a wait on Claude. Sentences you have not
+    /// answered yet come back first; one you answered correctly does not come
+    /// back at all. `refresh` asks for material never served before.
     func phrases(count: Int = 10, refresh: Bool = false) async throws -> PhraseSet {
         var query = [URLQueryItem(name: "count", value: String(count))]
         if refresh { query.append(URLQueryItem(name: "refresh", value: "true")) }
         return try decode(
-            PhraseSet.self, from: await request("GET", "practice/phrases", query: query)
+            PhraseSet.self,
+            from: await request(
+                "GET", "practice/phrases", query: query, timeout: Self.generationTimeout
+            )
         )
+    }
+
+    /// Report how a set of phrases went.
+    ///
+    /// This is what takes a sentence out of the rotation: the server keeps
+    /// serving one until it has been answered correctly. Safe to replay, so
+    /// the caller can queue results on the device and flush them late.
+    func submit(phraseResults: [PhraseResultIn]) async throws -> [PhraseResultOut] {
+        guard !phraseResults.isEmpty else { return [] }
+        struct Batch: Encodable { let results: [PhraseResultIn] }
+        let body = try Self.encoder.encode(Batch(results: phraseResults))
+        let data = try await request("POST", "practice/phrases/results", body: body)
+        return try decode(PhraseResultBatchResult.self, from: data).results
     }
 
     /// Fills the other half of a word being added. Returns the translation
     /// alone -- an empty one is a server error, not a result.
     func translate(_ text: String, into: TranslationDirection) async throws -> String {
         let body = try Self.encoder.encode(TranslateRequest(text: text, into: into))
-        let data = try await request("POST", "translate", body: body)
+        let data = try await request(
+            "POST", "translate", body: body, timeout: Self.generationTimeout
+        )
         return try decode(TranslateResponse.self, from: data).translation
     }
 
@@ -256,7 +308,9 @@ struct APIClient: Sendable {
     func translateBatch(_ texts: [String], into: TranslationDirection) async throws -> [String?] {
         guard !texts.isEmpty else { return [] }
         let body = try Self.encoder.encode(TranslateBatchRequest(texts: texts, into: into))
-        let data = try await request("POST", "translate/batch", body: body)
+        let data = try await request(
+            "POST", "translate/batch", body: body, timeout: Self.generationTimeout
+        )
         let response = try decode(TranslateBatchResponse.self, from: data)
         // Position is the only thing tying a translation to its word, so a
         // list of the wrong length is unusable rather than partly usable.
@@ -284,7 +338,10 @@ struct APIClient: Sendable {
     }
 
     func story() async throws -> StoryResponse {
-        try decode(StoryResponse.self, from: await request("GET", "story"))
+        try decode(
+            StoryResponse.self,
+            from: await request("GET", "story", timeout: Self.generationTimeout)
+        )
     }
 }
 

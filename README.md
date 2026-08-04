@@ -309,8 +309,31 @@ mid-session, over the same sentences:
 **Every content word comes from your deck.** A sentence with a word you have
 never met in it is not hard, it is impossible, and being unable to finish it
 teaches nothing. Function words — articles, pronouns, prepositions, *to be* —
-are always allowed, and the words the scheduler says you are closest to
-forgetting are named to Claude as the ones to work in.
+are always allowed.
+
+**The sentences are written before you ask for them.** A batch takes a minute
+or two, which is a minute or two of spinner if it happens when you open the
+tab, so it doesn't: the server keeps a fixed number of unanswered sentences in
+store (`MEMORIUM_PHRASE_POOL_SIZE`, 40 by default), tops the pool up in the
+background, and starts writing the replacements the moment you're served — you
+practise the ones already written while the next lot is being written.
+
+**Every word gets its turn.** Which vocabulary a batch is built from is decided
+here rather than left to Claude, which otherwise reaches for the same dozen
+easy words for ever. The deck words that have appeared in the fewest stored
+sentences go first, ties broken at random, and the rest of the sample is drawn
+at random from the deck — so the focus words keep meeting different neighbours,
+and over enough batches everything you have learned is practised in a sentence,
+and practised in company.
+
+**A sentence stays until you get it right.** Answer one correctly and it is
+retired. Get it wrong, or close, and it is kept: it comes back after a
+cooling-off period (`MEMORIUM_PHRASE_RETRY_HOURS`, 6 by default) marked *missed
+before*, because being shown the answer and asked it again straight away tests
+the last minute rather than the word. Leave a set half-finished and it is
+waiting where you left it next time, ahead of any new material — answers are
+queued on the phone and flushed on the next connection, so a session on a train
+still counts.
 
 **Audio never plays when the audio is the answer.** Same rule as the cards: the
 sentence is spoken up front except in the one direction where you are asked to

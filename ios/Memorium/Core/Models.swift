@@ -274,12 +274,47 @@ struct Phrase: Codable, Sendable, Identifiable, Equatable {
     let native: String
     /// The deck words it was built from, shown once the answer is out.
     let lemmas: [String]
+    /// How it has gone before. A sentence only comes back because it was
+    /// missed, so the card says so rather than letting it look new.
+    var attempts: Int = 0
+    var lapses: Int = 0
+
+    var isReturning: Bool { lapses > 0 }
 }
 
 struct PhraseSet: Codable, Sendable, Equatable {
     let targetLang: String
     let sourceLang: String
     let phrases: [Phrase]
+    /// Sentences the server has in store, waiting to be answered. Nothing is
+    /// drawn with it; it is what tells the app the pool is filling.
+    var poolDepth: Int = 0
+}
+
+/// How one phrase went, on its way back to the server.
+///
+/// `clientResultId` makes the flush idempotent, for the same reason a grade
+/// carries one: a result is written to the device first and sent when the
+/// network allows, so the same one can legitimately arrive twice.
+struct PhraseResultIn: Codable, Sendable {
+    let clientResultId: String
+    let phraseId: String
+    let correct: Bool
+    let answeredAt: Date
+}
+
+struct PhraseResultOut: Codable, Sendable {
+    let clientResultId: String
+    let phraseId: String
+    let accepted: Bool
+    var duplicate: Bool = false
+    /// Answered correctly: it has left the rotation for good.
+    var mastered: Bool = false
+    var retryAfter: Date?
+}
+
+struct PhraseResultBatchResult: Codable, Sendable {
+    let results: [PhraseResultOut]
 }
 
 struct StoryResponse: Codable, Sendable {

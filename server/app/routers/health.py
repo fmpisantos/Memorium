@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app import phrases
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import EnrichmentStatus, Word
+from app.models import EnrichmentStatus, Profile, Word
+from app.phrases import get_pool
 
 router = APIRouter(tags=["health"])
 
@@ -78,6 +80,12 @@ async def health(db: Session = Depends(get_db), settings: Settings = Depends(get
         .where(Word.enrichment_status == EnrichmentStatus.failed)
     )
 
+    # Sentences waiting to be practised. A pool sitting at zero while the deck
+    # is full is the one failure here that is otherwise invisible: practice
+    # still works, from repeats, and nothing says the writer has stopped.
+    profile = db.get(Profile, 1)
+    phrase_pool = phrases.depth(db, profile) if profile is not None else 0
+
     return {
         "status": "ok" if (db_ok and cli_ok) else "degraded",
         "db": db_detail if not db_ok else "ok",
@@ -88,4 +96,6 @@ async def health(db: Session = Depends(get_db), settings: Settings = Depends(get
         "claude_models": settings.task_models,
         "queue_depth": queue_depth or 0,
         "enrichment_failed": failed or 0,
+        "phrase_pool": phrase_pool,
+        "phrase_pool_error": get_pool().last_error,
     }

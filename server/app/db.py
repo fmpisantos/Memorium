@@ -51,6 +51,32 @@ def init_db() -> None:
     models.Base.metadata.create_all(bind=engine)
     _add_lemma_keys()
     _add_review_log_practice()
+    _add_phrase_progress()
+
+
+def _add_phrase_progress() -> None:
+    """Gives sentences written before this the same blank slate as new ones.
+
+    Same story as the columns below: no migration tool, a handful of added
+    columns. The backfill is the easy kind -- a phrase from before this existed
+    has never been answered, because answering one was not recorded anywhere --
+    so zero attempts and no mastery is the truth rather than a guess.
+    """
+    existing = {c["name"] for c in inspect(engine).get_columns("phrases")}
+    additions = {
+        "attempts": "INTEGER NOT NULL DEFAULT 0",
+        "lapses": "INTEGER NOT NULL DEFAULT 0",
+        "mastered_at": "DATETIME",
+        "retry_after": "DATETIME",
+    }
+    missing = {name: ddl for name, ddl in additions.items() if name not in existing}
+    if not missing:
+        return  # Fresh database: create_all already built them.
+
+    with engine.begin() as conn:
+        for name, ddl in missing.items():
+            conn.execute(text(f"ALTER TABLE phrases ADD COLUMN {name} {ddl}"))
+    logger.info("added phrase progress columns: %s", ", ".join(missing))
 
 
 def _add_review_log_practice() -> None:

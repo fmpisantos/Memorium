@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.db import SessionLocal, init_db
 from app.deps import ensure_profile
 from app.enrichment import get_service
+from app.phrases import get_pool
 from app.routers import auth, enrich, health, practice, study, words
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -20,9 +21,14 @@ async def lifespan(app: FastAPI):
         ensure_profile(db)
     service = get_service()
     await service.start()
+    # Sentences are written before they are asked for, not when the practice
+    # screen opens -- see `app.phrases`.
+    pool = get_pool()
+    await pool.start()
     try:
         yield
     finally:
+        await pool.stop()
         await service.stop()
 
 

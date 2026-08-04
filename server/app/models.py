@@ -288,7 +288,9 @@ class Phrase(Base):
     target: Mapped[str] = mapped_column(Text)
     native: Mapped[str] = mapped_column(Text)
     # Deck lemmas the sentence was built from, as supplied to the generator.
-    # Kept so a phrase can be dropped once its words leave the deck.
+    # Kept so a phrase can be dropped once its words leave the deck -- and so
+    # the writer can see which words are under-used and build the next batch
+    # out of those.
     lemmas: Mapped[list] = mapped_column(JSON, default=list)
 
     source_lang: Mapped[str] = mapped_column(String(16))
@@ -302,10 +304,53 @@ class Phrase(Base):
         UTCDateTime, default=None, index=True
     )
 
+    # --- how it has gone so far ---
+    # A phrase stays in the rotation until it has been answered correctly once.
+    # Getting one wrong is not a reason to throw it away -- it is the reason to
+    # ask again -- so a wrong answer only sets `retry_after`, and `mastered_at`
+    # is what takes a sentence out of circulation.
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    lapses: Mapped[int] = mapped_column(Integer, default=0)
+    mastered_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, default=None, index=True
+    )
+    # Set when a phrase is answered wrong. It goes back into the pool, but not
+    # into the next ten minutes of the same session: being shown the answer and
+    # then asked it again straight away tests the last minute, not the word.
+    retry_after: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
+
     def __init__(self, **kw):
         kw.setdefault("lemmas", [])
         kw.setdefault("served_count", 0)
+        kw.setdefault("attempts", 0)
+        kw.setdefault("lapses", 0)
         kw.setdefault("created_at", utcnow())
+        super().__init__(**kw)
+
+
+class PhraseAttempt(Base):
+    """One answer to one phrase. Append-only, like `ReviewLog`.
+
+    The phrase row carries the state a session needs (mastered or not, when to
+    ask again); this carries what happened, which is what makes a replayed
+    result from the app's outbox a no-op rather than a second attempt.
+    """
+
+    __tablename__ = "phrase_attempts"
+    __table_args__ = (
+        UniqueConstraint("client_result_id", name="uq_phrase_attempts_client_result_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    phrase_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("phrases.id", ondelete="CASCADE"), index=True
+    )
+    correct: Mapped[bool] = mapped_column(Boolean)
+    answered_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    client_result_id: Mapped[str] = mapped_column(String(36), index=True)
+
+    def __init__(self, **kw):
+        kw.setdefault("answered_at", utcnow())
         super().__init__(**kw)
 
 

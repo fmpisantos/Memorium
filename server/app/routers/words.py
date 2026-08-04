@@ -6,6 +6,7 @@ from app.db import get_db
 from app.deps import get_profile, require_user
 from app.enrichment import get_service
 from app.models import EnrichmentStatus, Profile, Word, deck_key, normalise_lemma
+from app.phrases import get_pool
 from app.scheduler import new_cards_for_word
 from app.schemas import (
     ProfileOut,
@@ -79,6 +80,10 @@ def create_word(payload: WordCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(word)
     get_service().enqueue([word.id])
+    # New vocabulary is new material for the phrase writer -- and on a deck
+    # that has just crossed the threshold for having any, it is the difference
+    # between the first practice session being instant and being a wait.
+    get_pool().request_top_up()
     return word
 
 
@@ -123,6 +128,7 @@ def create_words_batch(payload: WordBatchCreate, db: Session = Depends(get_db)):
     for word in created:
         db.refresh(word)
     get_service().enqueue([w.id for w in created])
+    get_pool().request_top_up()
 
     # Reported as they were sent, not as they are keyed: "Perro" is what the
     # learner typed and what they need to find in the list.
